@@ -40,61 +40,57 @@ src/
 └── types.ts                  # Type definitions
 ```
 
-## API Usage Guide
+## MCP Usage Guide
 
-### Memory Management API
+### Memory Management
 
-#### Add Memory
+#### Unified Memory Tool
 ```json
 {
-  "tool": "add_memory",
+  "tool": "memory_tool",
   "arguments": {
+    "operation": "create",
     "content": "Meeting notes: Discussed new product feature planning",
     "summary": "Product feature meeting notes",
     "tags": ["meeting", "product"],
     "context_id": "optional-context-id"
   }
 }
-```
 
-#### Search Memory
-```json
 {
-  "tool": "search_memory",
+  "tool": "memory_tool",
   "arguments": {
+    "operation": "search",
     "query": "product feature",
     "limit": 5
   }
 }
-```
 
-#### List Memories
-```json
 {
-  "tool": "list_memories",
+  "tool": "memory_tool",
   "arguments": {
+    "operation": "list",
     "tags": ["meeting"]
   }
 }
-```
 
-#### Delete Memory
-```json
 {
-  "tool": "delete_memory",
+  "tool": "memory_tool",
   "arguments": {
+    "operation": "delete",
     "id": "memory-id"
   }
 }
 ```
 
-### Task Management API
+### Task Management
 
-#### Create Task
+#### Unified Task Tool
 ```json
 {
-  "tool": "create_task",
+  "tool": "task_tool",
   "arguments": {
+    "operation": "create",
     "title": "Complete product prototype",
     "description": "Build the product prototype based on meeting discussions",
     "priority": "high",
@@ -103,42 +99,36 @@ src/
     "linked_memories": ["memory-id-1", "memory-id-2"]
   }
 }
-```
 
-#### Update Task
-```json
 {
-  "tool": "update_task",
+  "tool": "task_tool",
   "arguments": {
+    "operation": "update",
     "id": "task-id",
     "status": "in_progress",
     "progress_note": "Initial design completed"
   }
 }
-```
 
-#### Get Task Status
-```json
 {
-  "tool": "get_task_status",
+  "tool": "task_tool",
   "arguments": {
+    "operation": "read",
     "id": "task-id"
   }
 }
-```
 
-#### List Tasks
-```json
 {
-  "tool": "list_tasks",
+  "tool": "task_tool",
   "arguments": {
+    "operation": "list",
     "status": "in_progress",
     "priority": "high"
   }
 }
 ```
 
-### Context Management API
+### Context Management
 
 #### Create Context Snapshot
 ```json
@@ -150,6 +140,16 @@ src/
     "related_memories": ["memory-id-1"],
     "related_tasks": ["task-id-1"]
   }
+}
+```
+
+### System Overview
+
+#### Get System Overview
+```json
+{
+  "tool": "overview",
+  "arguments": {}
 }
 ```
 
@@ -223,7 +223,7 @@ node {path}/dist/index.js --env MCP_DATA_DIR={path}/mcp_data
 ### Integrating with MCP Client
 1. Add this server to the MCP client configuration
 2. Use the stdio protocol for communication
-3. Manage memories and tasks via tool invocation API
+3. Manage memories and tasks via tool invocation MCP
 
 ### Extension Features
 1. **Vector Search**: Integrate ChromaDB or other vector databases
@@ -249,16 +249,16 @@ node {path}/dist/index.js --env MCP_DATA_DIR={path}/mcp_data
 ## Development Guidelines
 
 ### Code Structure
-- Follow the three-layer architecture: Storage Layer, Service Layer, and API Layer
+- Follow the three-layer architecture: Storage Layer, Service Layer, and MCP Layer
 - Each class should have a single responsibility
 - Use dependency injection for better testability
 
 ### TypeScript Best Practices
 - Use strict typing and avoid `any` where possible
-- Define interfaces for all API parameters and return values
+- Define interfaces for all MCP parameters and return values
 - Use generics for reusable components
 
 ### Testing
 - Unit tests for all services and utilities
-- Integration tests for API endpoints
+- Integration tests for MCP endpoints
 - Run tests with `npm test`
