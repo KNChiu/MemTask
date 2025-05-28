@@ -9,7 +9,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { existsSync } from 'fs';
 import * as crypto from 'crypto';
-import { Task, CreateTaskArgs, UpdateTaskArgs, GetTaskStatusArgs, ListTasksArgs, DeleteTaskArgs } from './types';
+import { Task, CreateTaskArgs, UpdateTaskArgs, GetTaskStatusArgs, ListTasksArgs, DeleteTaskArgs, SearchTaskArgs } from './types';
 
 /**
  * Simplified cache implementation
@@ -287,6 +287,64 @@ export class TaskManager {
       this.console.error('Failed to delete task:', error);
       throw error;
     }
+  }
+
+  /**
+   * Search tasks
+   * @param args Search parameters
+   */
+  async searchTask(args: SearchTaskArgs): Promise<Array<{ task: Task, similarity: number }>> {
+    try {
+      if (!args.query) throw new Error('Query is required');
+      
+      const query = args.query.toLowerCase();
+      const limit = args.limit || 10;
+      const tasks = await this.list();
+      
+      const results = tasks
+        .map(task => {
+          const titleMatch = task.title.toLowerCase().includes(query);
+          const descMatch = task.description.toLowerCase().includes(query);
+          const tagMatch = task.tags.some(tag => tag.toLowerCase().includes(query));
+          const notesMatch = task.progress_notes.some(note => note.toLowerCase().includes(query));
+          
+          if (titleMatch || descMatch || tagMatch || notesMatch) {
+            return {
+              task,
+              similarity: 0.9
+            };
+          }
+          
+          return {
+            task,
+            similarity: this.calculateSimpleSimilarity(query, 
+              `${task.title} ${task.description} ${task.tags.join(' ')} ${task.progress_notes.join(' ')}`)
+          };
+        })
+        .filter(result => result.similarity > 0.01)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
+      
+      return results;
+    } catch (error) {
+      this.console.error('Failed to search tasks:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Calculate simple similarity score
+   */
+  private calculateSimpleSimilarity(query: string, text: string): number {
+    const queryWords = new Set(query.split(/\s+/).filter(word => word.length > 0));
+    const textWords = new Set(text.toLowerCase().split(/\s+/).filter(word => word.length > 0));
+    
+    let overlap = 0;
+    queryWords.forEach(word => {
+      if (textWords.has(word)) overlap++;
+    });
+    
+    return queryWords.size > 0 ? overlap / queryWords.size : 0;
   }
 
   /**

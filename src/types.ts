@@ -118,6 +118,11 @@ export type DeleteTaskArgs = {
   id: string;
 };
 
+export type SearchTaskArgs = {
+  query: string;
+  limit?: number;
+};
+
 export type CreateContextSnapshotArgs = {
   summary: string;
   content: string;

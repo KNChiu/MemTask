@@ -565,11 +565,15 @@ export class MemoryContextServer {
               }
               
               case 'search': {
+                const tasks = await this.taskManager.searchTask(params);
+                
                 return {
                   content: [
                     {
                       type: 'text',
-                      text: 'Search functionality is not implemented yet.'
+                      text: `Found ${tasks.length} related tasks:\n\n${tasks.map(t => 
+                        `ID: ${t.task.id}\nTitle: ${t.task.title}\nStatus: ${t.task.status}\nPriority: ${t.task.priority}\nTags: ${t.task.tags.join(', ')}\nSimilarity: ${t.similarity.toFixed(2)}\n---`
+                      ).join('\n')}`
                     }
                   ]
                 };
