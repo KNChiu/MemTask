@@ -1,10 +1,46 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { getConfig } = require('../dist/src/config');
+const { MemoryManager } = require('../dist/src/memory');
+const { TaskManager } = require('../dist/src/task');
+const { ContextManager } = require('../dist/src/context');
 
 // Configuration
 const PORT = 8080;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+
+// Initialize MCP data managers
+const config = getConfig();
+const logger = console;
+const memoryManager = new MemoryManager(
+  config.memoriesPath, 
+  config.cache.memory.maxSize, 
+  logger
+);
+const taskManager = new TaskManager(
+  config.tasksPath, 
+  config.cache.task.maxSize, 
+  logger
+);
+const contextManager = new ContextManager(
+  config.contextsPath, 
+  config.cache.context.maxSize, 
+  logger
+);
+
+// Initialize data managers
+(async () => {
+  try {
+    await memoryManager.initialize();
+    await taskManager.initialize();
+    await contextManager.initialize();
+    console.log('MCP data managers initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize MCP data managers:', error);
+    process.exit(1);
+  }
+})();
 
 // Create HTTP server
 const server = http.createServer(async (req, res) => {
@@ -49,30 +85,64 @@ const server = http.createServer(async (req, res) => {
       
       switch (endpoint) {
         case 'overview':
-          data = {
-            memoriesCount: 0,
-            tasksCount: 7,
-            contextsCount: 3,
-            activeTasks: 0
-          };
+          try {
+            const memories = await memoryManager.listMemories();
+            const tasks = await taskManager.listTasks();
+            const contexts = await contextManager.listContextSnapshots();
+            const activeTasks = tasks.filter(task => 
+              task.status === 'todo' || task.status === 'in_progress'
+            ).length;
+            
+            data = {
+              memoriesCount: memories.length,
+              tasksCount: tasks.length,
+              contextsCount: contexts.length,
+              activeTasks: activeTasks
+            };
+          } catch (error) {
+            console.error('Failed to load overview data:', error);
+            data = { error: 'Failed to load overview data' };
+          }
           break;
         case 'tasks':
-          data = [
-            { id: '1', title: 'Create project structure for web viewer', status: 'completed', priority: 'high' },
-            { id: '2', title: 'Implement HTTP server for web viewer', status: 'completed', priority: 'high' },
-            { id: '3', title: 'Develop dashboard UI', status: 'completed', priority: 'medium' },
-            { id: '4', title: 'Implement task viewing panel', status: 'completed', priority: 'medium' }
-          ];
+          try {
+            const tasks = await taskManager.listTasks();
+            data = tasks.map(task => ({
+              id: task.id,
+              title: task.title,
+              status: task.status,
+              priority: task.priority
+            }));
+          } catch (error) {
+            console.error('Failed to load tasks:', error);
+            data = { error: 'Failed to load tasks' };
+          }
           break;
         case 'memories':
-          data = [];
+          try {
+            const memories = await memoryManager.listMemories();
+            data = memories.map(memory => ({
+              id: memory.id,
+              summary: memory.summary,
+              created_at: memory.metadata.created_at
+            }));
+          } catch (error) {
+            console.error('Failed to load memories:', error);
+            data = { error: 'Failed to load memories' };
+          }
           break;
         case 'contexts':
-          data = [
-            { id: '1', summary: 'Successfully resolved npm run dev error', created_at: '2025-05-29T05:27:49.261Z' },
-            { id: '2', summary: 'SQL Agent MCP implementation', created_at: '2025-05-29T03:08:08.511Z' },
-            { id: '3', summary: 'Sample question tool implementation', created_at: '2025-05-29T01:53:56.092Z' }
-          ];
+          try {
+            const contexts = await contextManager.listContextSnapshots();
+            data = contexts.map(context => ({
+              id: context.id,
+              summary: context.summary,
+              created_at: context.created_at
+            }));
+          } catch (error) {
+            console.error('Failed to load contexts:', error);
+            data = { error: 'Failed to load contexts' };
+          }
           break;
         default:
           data = { error: 'Unknown endpoint' };
