@@ -274,11 +274,29 @@ export class MemoryContextServer {
       this.logger.debug('Handling tool list request');
       
       try {
-        const tools = [
+            const tools = [
           // Memory management tools
           {
             name: 'memory_tool',
-            description: 'Unified memory management tool with operation: "create", "read", "search", "list", "delete"',
+            description: 'Unified memory management tool with operation: "create", "read", "search", "list", "delete"\n\nExample usage:\n' +
+              JSON.stringify({
+                "tool": "memory_tool",
+                "arguments": {
+                  "operation": "create",
+                  "content": "Meeting notes: Discussed new product feature planning",
+                  "summary": "Product feature meeting notes",
+                  "tags": ["meeting", "product"],
+                  "context_id": "optional-context-id"
+                }
+              }, null, 2) + '\n\n' +
+              JSON.stringify({
+                "tool": "memory_tool",
+                "arguments": {
+                  "operation": "search",
+                  "query": "product feature",
+                  "limit": 5
+                }
+              }, null, 2),
             inputSchema: {
               type: 'object',
               properties: {
@@ -301,7 +319,28 @@ export class MemoryContextServer {
           // Task management tools
           {
             name: 'task_tool',
-            description: 'Unified task management tool with operation: "create", "read", "update", "delete", "list", "search"',
+            description: 'Unified task management tool with operation: "create", "read", "update", "delete", "list", "search"\n\nExample usage:\n' +
+              JSON.stringify({
+                "tool": "task_tool",
+                "arguments": {
+                  "operation": "create",
+                  "title": "Complete product prototype",
+                  "description": "Build the product prototype based on meeting discussions",
+                  "priority": "high",
+                  "tags": ["development", "prototype"],
+                  "due_date": "2024-12-31T23:59:59Z",
+                  "linked_memories": ["memory-id-1", "memory-id-2"]
+                }
+              }, null, 2) + '\n\n' +
+              JSON.stringify({
+                "tool": "task_tool",
+                "arguments": {
+                  "operation": "update",
+                  "id": "task-id",
+                  "status": "in_progress",
+                  "progress_note": "Initial design completed"
+                }
+              }, null, 2),
             inputSchema: {
               type: 'object',
               properties: {
@@ -316,7 +355,7 @@ export class MemoryContextServer {
                 status: { 
                   type: 'string', 
                   enum: ['todo', 'in_progress', 'completed', 'cancelled'],
-                  description: 'Task status (for update operation)'
+                  description: 'Task status (for update operation)' 
                 },
                 priority: { 
                   type: 'string', 
@@ -337,7 +376,16 @@ export class MemoryContextServer {
           // Context management tools
           {
             name: 'create_context_snapshot',
-            description: 'Create context snapshot',
+            description: 'Create context snapshot\n\nExample usage:\n' +
+              JSON.stringify({
+                "tool": "create_context_snapshot",
+                "arguments": {
+                  "summary": "Product development discussion context",
+                  "content": "Detailed conversation content...",
+                  "related_memories": ["memory-id-1"],
+                  "related_tasks": ["task-id-1"]
+                }
+              }, null, 2),
             inputSchema: {
               type: 'object',
               properties: {
@@ -610,55 +658,121 @@ export class MemoryContextServer {
             const memories = await this.memoryManager.listMemories();
             const tasks = await this.taskManager.listTasks();
             const contexts = await this.contextManager.listContextSnapshots();
-
+        
+            const truncateText = (text: string, maxLength: number = 80) => {
+                return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+            };
+        
+            // Calculate statistics
+            const activeTasks = tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled');
+            const taskStats = {
+                todo: tasks.filter(t => t.status === 'todo').length,
+                inProgress: tasks.filter(t => t.status === 'in_progress').length,
+                completed: tasks.filter(t => t.status === 'completed').length,
+                cancelled: tasks.filter(t => t.status === 'cancelled').length
+            };
+        
+            // Calculate label statistics
+            const tagCounts = new Map<string, number>();
+            memories.forEach(m => {
+                m.metadata.tags.forEach(tag => {
+                    tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+                });
+            });
+            const topTags = Array.from(tagCounts.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+        
+            // Cache Statistics
+            const memoryCache = this.memoryManager.getCacheStats();
+            const taskCache = this.taskManager.getCacheStats();
+            const contextCache = this.contextManager.getCacheStats();
+            const totalHits = memoryCache.hits + taskCache.hits + contextCache.hits;
+            const totalMisses = memoryCache.misses + taskCache.misses + contextCache.misses;
+            const overallHitRate = totalHits + totalMisses > 0 ? (totalHits / (totalHits + totalMisses) * 100).toFixed(1) : '0.0';
+        
             // Generate system overview
             const overview = `# Memory Context System Overview
 
-## Statistical Summary
-- Total memories: ${memories.length}
-- Total tasks: ${tasks.length}
-- Total context snapshots: ${contexts.length}
+## System Statistics
 
-## Recent Memories (Latest 5)
-${memories.slice(0, 5).map(m => 
-  `- ${m.summary} (${m.metadata.created_at}) [${m.metadata.tags.join(', ')}]`
-).join('\n')}
+| Metric | Count |
+|--------|-------|
+| Total Memories | ${memories.length} |
+| Total Tasks | ${tasks.length} |
+| Active Tasks | ${activeTasks.length} |
+| Context Snapshots | ${contexts.length} |
+| Overall Cache Hit Rate | ${overallHitRate}% |
+
+## Recent Memories
+
+${memories.length === 0 ? '*No memories found*' : 
+    memories.slice(0, 5).map((m, i) => 
+        `### ${i + 1}. ${truncateText(m.summary)}
+**Tags:** ${m.metadata.tags.join(', ') || 'None'}  
+**Created:** ${m.metadata.created_at}  
+**ID:** \`${m.id}\`
+`
+    ).join('\n')}
 
 ## Active Tasks
-${tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled').map(t => 
-  `- [${t.status.toUpperCase()}] ${t.title} (Priority: ${t.priority})`
-).join('\n')}
+
+${activeTasks.length === 0 ? '*No active tasks*' : 
+    activeTasks.slice(0, 8).map((t, i) => 
+        `### ${i + 1}. ${truncateText(t.title)}
+**Status:** ${t.status.toUpperCase()}  
+**Priority:** ${(t.priority || 'normal').toUpperCase()}  
+**ID:** \`${t.id}\`
+`
+    ).join('\n')}
 
 ## Recent Context Snapshots
-${contexts.slice(0, 3).map(c => 
-  `- ${c.summary} (${c.created_at})`
-).join('\n')}
+
+${contexts.length === 0 ? '*No context snapshots found*' :
+    contexts.slice(0, 3).map((c, i) => 
+        `### ${i + 1}. ${truncateText(c.summary)}
+**Created:** ${c.created_at}
+`
+    ).join('\n')}
 
 ## Task Status Distribution
-- Todo: ${tasks.filter(t => t.status === 'todo').length}
-- In Progress: ${tasks.filter(t => t.status === 'in_progress').length}
-- Completed: ${tasks.filter(t => t.status === 'completed').length}
-- Cancelled: ${tasks.filter(t => t.status === 'cancelled').length}
 
-## Memory Tags (Most Common)
-${(() => {
-  const tagCounts = new Map<string, number>();
-  memories.forEach(m => {
-    m.metadata.tags.forEach(tag => {
-      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-    });
-  });
-  return Array.from(tagCounts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([tag, count]) => `- ${tag}: ${count}`)
-    .join('\n');
-})()}
+| Status | Count |
+|--------|-------|
+| Todo | ${taskStats.todo} |
+| In Progress | ${taskStats.inProgress} |
+| Completed | ${taskStats.completed} |
+| Cancelled | ${taskStats.cancelled} |
+| **Total** | **${tasks.length}** |
 
-## Cache Statistics
-- Memory cache: Hits ${this.memoryManager.getCacheStats().hits}, Misses ${this.memoryManager.getCacheStats().misses}
-- Task cache: Hits ${this.taskManager.getCacheStats().hits}, Misses ${this.taskManager.getCacheStats().misses}
-- Context cache: Hits ${this.contextManager.getCacheStats().hits}, Misses ${this.contextManager.getCacheStats().misses}`;
+## Memory Tags Analysis
+
+${topTags.length === 0 ? '*No tags found*' :
+    `| Rank | Tag | Usage Count |
+|------|-----|-------------|
+${topTags.map(([tag, count], i) => 
+    `| ${i + 1} | ${tag} | ${count} |`
+).join('\n')}`}
+
+## Cache Performance Metrics
+
+| Component | Hits | Misses | Hit Rate | Total Requests |
+|-----------|------|--------|----------|----------------|
+| Memory Cache | ${memoryCache.hits} | ${memoryCache.misses} | ${memoryCache.hits + memoryCache.misses > 0 ? ((memoryCache.hits / (memoryCache.hits + memoryCache.misses)) * 100).toFixed(1) + '%' : 'N/A'} | ${memoryCache.hits + memoryCache.misses} |
+| Task Cache | ${taskCache.hits} | ${taskCache.misses} | ${taskCache.hits + taskCache.misses > 0 ? ((taskCache.hits / (taskCache.hits + taskCache.misses)) * 100).toFixed(1) + '%' : 'N/A'} | ${taskCache.hits + taskCache.misses} |
+| Context Cache | ${contextCache.hits} | ${contextCache.misses} | ${contextCache.hits + contextCache.misses > 0 ? ((contextCache.hits / (contextCache.hits + contextCache.misses)) * 100).toFixed(1) + '%' : 'N/A'} | ${contextCache.hits + contextCache.misses} |
+| **Overall** | **${totalHits}** | **${totalMisses}** | **${overallHitRate}%** | **${totalHits + totalMisses}** |
+
+## System Health Summary
+
+**Memory System:** ${memories.length > 0 ? 'Active' : 'Empty'}  
+**Task Management:** ${tasks.length > 0 ? `${activeTasks.length} active out of ${tasks.length} total` : 'No tasks'}  
+**Context Tracking:** ${contexts.length > 0 ? 'Active' : 'No snapshots'}  
+**Cache Efficiency:** ${parseFloat(overallHitRate) > 80 ? 'Excellent' : parseFloat(overallHitRate) > 60 ? 'Good' : parseFloat(overallHitRate) > 40 ? 'Fair' : 'Poor'}
+
+---
+*Report generated at: ${new Date()}*
+`;
 
             return {
               content: [
