@@ -81,6 +81,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname.startsWith('/api/')) {
     try {
       const endpoint = url.pathname.replace('/api/', '');
+      const pathParts = endpoint.split('/');
       let data = {};
       
       switch (endpoint) {
@@ -145,7 +146,71 @@ const server = http.createServer(async (req, res) => {
           }
           break;
         default:
-          data = { error: 'Unknown endpoint' };
+          // Handle detailed view endpoints (e.g., tasks/id, memories/id, contexts/id)
+          if (pathParts.length === 2) {
+            const [type, id] = pathParts;
+            
+            switch (type) {
+              case 'tasks':
+                try {
+                  const task = await taskManager.getTaskStatus({ id });
+                  if (task) {
+                    // Ensure ID is included in the response
+                    data = {
+                      ...task,
+                      id: task.id || id
+                    };
+                    console.log('Task details:', data); // Debug log
+                  } else {
+                    data = { error: 'Task not found' };
+                  }
+                } catch (error) {
+                  console.error('Failed to load task details:', error);
+                  data = { error: 'Failed to load task details' };
+                }
+                break;
+              case 'memories':
+                try {
+                  const memory = await memoryManager.getMemory(id);
+                  if (memory) {
+                    // Ensure ID is included in the response
+                    data = {
+                      ...memory,
+                      id: memory.id || id
+                    };
+                    console.log('Memory details:', data); // Debug log
+                  } else {
+                    data = { error: 'Memory not found' };
+                  }
+                } catch (error) {
+                  console.error('Failed to load memory details:', error);
+                  data = { error: 'Failed to load memory details' };
+                }
+                break;
+              case 'contexts':
+                try {
+                  const context = await contextManager.getContextSnapshot(id);
+                  if (context) {
+                    // Ensure ID is included in the response
+                    data = {
+                      ...context,
+                      id: context.id || id
+                    };
+                    console.log('Context details:', data); // Debug log
+                  } else {
+                    data = { error: 'Context not found' };
+                  }
+                } catch (error) {
+                  console.error('Failed to load context details:', error);
+                  data = { error: 'Failed to load context details' };
+                }
+                break;
+              default:
+                data = { error: 'Unknown detail endpoint' };
+            }
+          } else {
+            data = { error: 'Unknown endpoint' };
+          }
       }
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
