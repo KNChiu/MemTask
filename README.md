@@ -69,16 +69,20 @@ The dashboard displays:
 - **Context Snapshots**: Recent context captures with timestamps
 - **System Alerts**: Notifications for critical events
 
-![Monitoring Dashboard](image/dashboard.png) *Example monitoring interface*
+![Monitoring Dashboard](image/dashboard.png)  
+*Example monitoring interface*
 
 ### Task Management Interface
-![Task Management Interface](image/tasks.png) *Example task management interface*
+![Task Management Interface](image/tasks.png)   
+*Example task management interface*
 
 ### Memory Management Interface
-![Memory Management Interface](image/memories.png) *Example memory management interface*
+![Memory Management Interface](image/memories.png)   
+*Example memory management interface*
 
 ### Context Snapshots Interface
-![Context Snapshots Interface](image/context_snapshots.png) *Example context snapshots interface*
+![Context Snapshots Interface](image/context_snapshots.png)   
+*Example context snapshots interface*
 
 ### Key Features
 - Real-time updates via WebSocket connection
