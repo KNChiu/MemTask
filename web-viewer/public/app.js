@@ -263,8 +263,8 @@ function renderDetails(container, data, type) {
           <div class="detail-section">
             <strong>Created:</strong> ${formatDate(data.created_at)}
           </div>
-          ${data.related_memories && data.related_memories.length ? `<div class="detail-section"><strong>Related Memories:</strong> ${data.related_memories.length} items</div>` : ''}
-          ${data.related_tasks && data.related_tasks.length ? `<div class="detail-section"><strong>Related Tasks:</strong> ${data.related_tasks.length} items</div>` : ''}
+          ${data.related_memories && data.related_memories.length ? `<div class="detail-section"><strong>Related Memories:</strong><ul>${data.related_memories.map(id => `<li>${id}</li>`).join('')}</ul></div>` : ''}
+          ${data.related_tasks && data.related_tasks.length ? `<div class="detail-section"><strong>Related Tasks:</strong><ul>${data.related_tasks.map(id => `<li>${id}</li>`).join('')}</ul></div>` : ''}
         </div>
       `;
       break;
