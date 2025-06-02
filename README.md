@@ -218,6 +218,40 @@ mcp-server-memory-task
 node {path}/dist/index.js --env MCP_DATA_DIR={path}/mcp_data
 ```
 
+## Monitoring Page
+
+The server includes a web-based monitoring dashboard that provides real-time insights into the system's operations. To access the dashboard:
+
+1. Start the server in development mode: `node web-viewer/server.js`
+2. Open your browser to `http://localhost:8080`
+
+The dashboard displays:
+
+- **Server Status**: Current operational state and uptime
+- **Memory Metrics**: Usage statistics and trend analysis
+- **Task Progress**: Visualization of active/completed tasks
+- **Context Snapshots**: Recent context captures with timestamps
+- **System Alerts**: Notifications for critical events
+
+![Monitoring Dashboard](image/dashboard.png) *Example monitoring interface*
+
+### Task Management Interface
+![Task Management Interface](image/tasks.png) *Example task management interface*
+
+### Memory Management Interface
+![Memory Management Interface](image/memories.png) *Example memory management interface*
+
+### Context Snapshots Interface
+![Context Snapshots Interface](image/context_snapshots.png) *Example context snapshots interface*
+
+### Key Features
+- Real-time updates via WebSocket connection
+- Historical performance trends
+- Filtering by task status/memory tags
+- Export functionality for reports
+
+> Note: The monitoring page requires the web-viewer component to be running. See the "Run Server" section for startup instructions.
+
 ## Integration Recommendations
 
 ### Integrating with MCP Client
