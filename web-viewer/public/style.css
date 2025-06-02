@@ -12,7 +12,7 @@ body {
     color: #333;
     background-color: #f5f5f5;
     padding: 20px;
-    max-width: 1200px;
+    max-width: 90%;
     margin: 0 auto;
 }
 
@@ -63,8 +63,38 @@ h2 {
     color: #7f8c8d;
 }
 
-/* Section Styles */
-section {
+/* Dashboard Layout Styles */
+.dashboard-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.dashboard-row {
+    display: flex;
+    gap: 20px;
+}
+
+/* Widget Styles */
+.widget {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    flex: 1;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+}
+
+.widget h2 {
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+/* Legacy section support (fallback) */
+section:not(.widget) {
     background: white;
     border-radius: 8px;
     padding: 20px;
@@ -233,8 +263,101 @@ section {
     transform: rotate(180deg);
 }
 
+/* Specific row styling */
+.overview-row {
+    justify-content: center;
+}
+
+.widgets-row {
+    flex-wrap: wrap;
+}
+
 /* Responsive Design */
+@media (max-width: 1024px) {
+    .widgets-row {
+        flex-direction: row;
+    }
+    
+    .widgets-row .widget {
+        min-width: calc(50% - 10px);
+        flex: 1 1 calc(50% - 10px);
+    }
+    
+    /* Make memories widget take full width on medium screens */
+    .widgets-row #memories-view {
+        order: 3;
+        flex: 1 1 100%;
+        min-width: 100%;
+    }
+    
+    /* Tasks and Context Snapshots side by side */
+    .widgets-row #tasks-view {
+        order: 1;
+    }
+    
+    .widgets-row #context-view {
+        order: 2;
+    }
+    
+    .widget {
+        min-width: unset;
+    }
+    
+    .dashboard-container {
+        max-height: unset;
+    }
+}
+
 @media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    
+    .dashboard-container {
+        gap: 15px;
+    }
+    
+    .dashboard-row {
+        gap: 15px;
+    }
+    
+    /* Stack all widgets vertically on mobile */
+    .widgets-row {
+        flex-direction: column;
+    }
+    
+    .widgets-row .widget {
+        min-width: 100%;
+        flex: 1 1 100%;
+        order: unset;
+    }
+    
+    .widget {
+        padding: 15px;
+    }
+    
+    h1 {
+        font-size: 1.8rem;
+    }
+    
+    h2 {
+        font-size: 1.3rem;
+    }
+    
+    #stats {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-card {
+        padding: 12px;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+    
     .details {
         padding: 10px;
     }
@@ -242,5 +365,44 @@ section {
     .scrollable-content {
         max-height: 150px;
         font-size: 0.8em;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 8px;
+    }
+    
+    .dashboard-container {
+        gap: 12px;
+    }
+    
+    .dashboard-row {
+        gap: 12px;
+    }
+    
+    .widget {
+        padding: 12px;
+    }
+    
+    h1 {
+        font-size: 1.6rem;
+    }
+    
+    h2 {
+        font-size: 1.2rem;
+    }
+    
+    #stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .stat-card {
+        padding: 10px;
+    }
+    
+    .stat-value {
+        font-size: 1.3rem;
     }
 }

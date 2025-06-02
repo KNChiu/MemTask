@@ -10,26 +10,32 @@
     <header>
         <h1>MemTask System Viewer</h1>
     </header>
-    <main>
-        <section id="dashboard">
-            <h2>System Overview</h2>
-            <div id="stats"></div>
-        </section>
+    <main class="dashboard-container">
+        <!-- Row 1: System Overview only -->
+        <div class="dashboard-row overview-row">
+            <section class="widget" id="dashboard">
+                <h2>System Overview</h2>
+                <div id="stats"></div>
+            </section>
+        </div>
         
-        <section id="tasks-view">
-            <h2>Tasks</h2>
-            <div id="tasks-container"></div>
-        </section>
-        
-        <section id="memories-view">
-            <h2>Memories</h2>
-            <div id="memories-container"></div>
-        </section>
-        
-        <section id="context-view">
-            <h2>Context Snapshots</h2>
-            <div id="context-container"></div>
-        </section>
+        <!-- Row 2: Tasks, Memories, Context Snapshots -->
+        <div class="dashboard-row widgets-row">
+            <section class="widget" id="tasks-view">
+                <h2>Tasks</h2>
+                <div id="tasks-container"></div>
+            </section>
+            
+            <section class="widget" id="memories-view">
+                <h2>Memories</h2>
+                <div id="memories-container"></div>
+            </section>
+            
+            <section class="widget" id="context-view">
+                <h2>Context Snapshots</h2>
+                <div id="context-container"></div>
+            </section>
+        </div>
     </main>
     <script src="app.js"></script>
 </body>
