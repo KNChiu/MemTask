@@ -251,8 +251,63 @@ wss.on('connection', (ws) => {
   });
 });
 
+// Clear cache for specific managers based on file changes
+function clearManagerCaches(type, filename) {
+  try {
+    switch (type) {
+      case 'memories':
+        if (filename && filename.endsWith('.json')) {
+          const id = filename.replace('.json', '');
+          console.log(`Clearing memory cache for ID: ${id}`);
+          if (memoryManager.cache && typeof memoryManager.cache.delete === 'function') {
+            memoryManager.cache.delete(id);
+          }
+          // Clear entire cache if we can't target specific item
+          if (memoryManager.cache && typeof memoryManager.cache.clear === 'function') {
+            memoryManager.cache.clear();
+            console.log('Cleared entire memory cache');
+          }
+        }
+        break;
+      case 'tasks':
+        if (filename && filename.endsWith('.json')) {
+          const id = filename.replace('.json', '');
+          console.log(`Clearing task cache for ID: ${id}`);
+          if (taskManager.cache && typeof taskManager.cache.delete === 'function') {
+            taskManager.cache.delete(id);
+          }
+          // Clear entire cache if we can't target specific item
+          if (taskManager.cache && typeof taskManager.cache.clear === 'function') {
+            taskManager.cache.clear();
+            console.log('Cleared entire task cache');
+          }
+        }
+        break;
+      case 'contexts':
+        if (filename && filename.endsWith('.json')) {
+          const id = filename.replace('.json', '');
+          console.log(`Clearing context cache for ID: ${id}`);
+          if (contextManager.cache && typeof contextManager.cache.delete === 'function') {
+            contextManager.cache.delete(id);
+          }
+          // Clear entire cache if we can't target specific item
+          if (contextManager.cache && typeof contextManager.cache.clear === 'function') {
+            contextManager.cache.clear();
+            console.log('Cleared entire context cache');
+          }
+        }
+        break;
+    }
+  } catch (error) {
+    console.error(`Error clearing cache for ${type}:`, error);
+  }
+}
+
 // Broadcast function to send updates to all connected clients
 function broadcastUpdate(type, data) {
+  // Clear caches before broadcasting updates
+  clearManagerCaches(type, data.filename);
+  
   const message = JSON.stringify({ type, data, timestamp: new Date().toISOString() });
   
   clients.forEach((client) => {
@@ -351,34 +406,71 @@ function setupPollingWatcher(dataDir) {
       if (fs.existsSync(subdirPath)) {
         try {
           const files = fs.readdirSync(subdirPath);
-          const currentScan = files.map(file => {
+          const currentScan = {};
+          
+          // Build current scan as a map with filename as key
+          files.forEach(file => {
             const filePath = path.join(subdirPath, file);
-            const stats = fs.statSync(filePath);
-            return {
-              name: file,
-              mtime: stats.mtime.getTime(),
-              size: stats.size
-            };
+            try {
+              const stats = fs.statSync(filePath);
+              currentScan[file] = {
+                name: file,
+                mtime: stats.mtime.getTime(),
+                ctime: stats.ctime.getTime(), // Change time
+                size: stats.size,
+                isFile: stats.isFile()
+              };
+            } catch (statError) {
+              console.log(`Could not stat file ${filePath}:`, statError.message);
+            }
           });
           
-          const lastScanForDir = lastScan[subdir] || [];
+          const lastScanForDir = lastScan[subdir] || {};
           
-          // Check for changes
-          const hasChanges = currentScan.length !== lastScanForDir.length ||
-            currentScan.some((file, index) => {
-              const lastFile = lastScanForDir[index];
-              return !lastFile || file.name !== lastFile.name || 
-                     file.mtime !== lastFile.mtime || file.size !== lastFile.size;
-            });
+          // Check for changes by comparing file maps
+          let hasChanges = false;
+          let changedFiles = [];
           
-          if (hasChanges && lastScanForDir.length > 0) {
-            console.log(`Polling detected changes in ${subdir}`);
+          // Check for new or modified files
+          Object.keys(currentScan).forEach(filename => {
+            const currentFile = currentScan[filename];
+            const lastFile = lastScanForDir[filename];
+            
+            if (!lastFile) {
+              // New file
+              hasChanges = true;
+              changedFiles.push({ name: filename, change: 'added' });
+              console.log(`Polling detected new file: ${filename}`);
+            } else if (
+              currentFile.mtime !== lastFile.mtime || 
+              currentFile.ctime !== lastFile.ctime ||
+              currentFile.size !== lastFile.size
+            ) {
+              // Modified file
+              hasChanges = true;
+              changedFiles.push({ name: filename, change: 'modified' });
+              console.log(`Polling detected modified file: ${filename} (mtime: ${currentFile.mtime} vs ${lastFile.mtime}, size: ${currentFile.size} vs ${lastFile.size})`);
+            }
+          });
+          
+          // Check for deleted files
+          Object.keys(lastScanForDir).forEach(filename => {
+            if (!currentScan[filename]) {
+              hasChanges = true;
+              changedFiles.push({ name: filename, change: 'deleted' });
+              console.log(`Polling detected deleted file: ${filename}`);
+            }
+          });
+          
+          if (hasChanges && Object.keys(lastScanForDir).length > 0) {
+            console.log(`Polling detected changes in ${subdir}:`, changedFiles);
             broadcastUpdate(subdir, {
               eventType: 'change',
               filename: 'polling-detected',
               path: subdirPath,
               directory: subdir,
-              method: 'polling'
+              method: 'polling',
+              changes: changedFiles
             });
           }
           
@@ -393,10 +485,10 @@ function setupPollingWatcher(dataDir) {
   // Initial scan
   scanDirectory();
   
-  // Poll every 2 seconds
-  setInterval(scanDirectory, 2000);
+  // Poll every 1 second for better responsiveness
+  setInterval(scanDirectory, 1000);
   
-  console.log('Polling watcher setup completed');
+  console.log('Polling watcher setup completed (1 second interval)');
 }
 
 // Start server
