@@ -54,7 +54,7 @@ mcp-server-memory-task
 node {path}/dist/index.js --env MCP_DATA_DIR={path}/mcp_data
 ```
 
-## Monitoring Page
+## Web Viewer Dashboard
 
 The server includes a web-based monitoring dashboard that provides real-time insights into the system's operations. To access the dashboard:
 
@@ -94,15 +94,25 @@ The dashboard displays:
 
 ### Project Structure
 ```
-src/
-├── core.ts                   # Config and Logger
-├── index.ts                  # Entry point
-├── server.ts                 # Server class
-├── memory.ts                 # Memory（service+storage）
-├── task.ts                   # Task（service+storage）
-├── context.ts                # Context（service+storage）
-├── utils.ts                  # Utility functions
-└── types.ts                  # Type definitions
+├── src/
+│   ├── config.ts             # Configuration management
+│   ├── logger.ts             # Logging utilities
+│   ├── index.ts              # Entry point
+│   ├── server.ts             # MCP Server implementation
+│   ├── memory.ts             # Memory service + storage
+│   ├── task.ts               # Task service + storage
+│   ├── context.ts            # Context service + storage
+│   ├── utils.ts              # Utility functions
+│   └── types.ts              # Type definitions
+├── web-viewer/
+│   ├── server.js             # Web dashboard server
+│   └── public/
+│       ├── index.html        # Dashboard HTML
+│       ├── app.js            # Frontend JavaScript
+│       └── style.css         # Dashboard styles
+├── package.json              # Dependencies and scripts
+├── tsconfig.json             # TypeScript configuration
+└── README.md                 # Documentation
 ```
 
 ## MCP Usage Guide
