@@ -2,12 +2,17 @@
 
 // API endpoint configuration
 const API_BASE = 'http://localhost:8080';  // Web viewer server port
+const WS_BASE = 'ws://localhost:8080';     // WebSocket server
 const ENDPOINTS = {
   OVERVIEW: '/api/overview',
   TASKS: '/api/tasks',
   MEMORIES: '/api/memories',
   CONTEXTS: '/api/contexts'
 };
+
+// WebSocket connection
+let ws = null;
+let reconnectInterval = null;
 
 // DOM Elements
 const statsContainer = document.getElementById('stats');
@@ -284,5 +289,228 @@ function renderDetails(container, data, type) {
   container.innerHTML = html;
 }
 
+// WebSocket functionality
+function connectWebSocket() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+  
+  console.log('Connecting to WebSocket...');
+  ws = new WebSocket(WS_BASE);
+  
+  ws.onopen = function() {
+    console.log('WebSocket connected');
+    updateConnectionStatus('connected');
+    
+    // Clear any existing reconnect interval
+    if (reconnectInterval) {
+      clearInterval(reconnectInterval);
+      reconnectInterval = null;
+    }
+  };
+  
+  ws.onmessage = function(event) {
+    try {
+      const message = JSON.parse(event.data);
+      console.log('WebSocket message received:', message);
+      handleWebSocketMessage(message);
+    } catch (error) {
+      console.error('Error parsing WebSocket message:', error);
+    }
+  };
+  
+  ws.onclose = function() {
+    console.log('WebSocket disconnected');
+    updateConnectionStatus('disconnected');
+    
+    // Attempt to reconnect after 3 seconds
+    if (!reconnectInterval) {
+      reconnectInterval = setInterval(() => {
+        console.log('Attempting to reconnect WebSocket...');
+        connectWebSocket();
+      }, 3000);
+    }
+  };
+  
+  ws.onerror = function(error) {
+    console.error('WebSocket error:', error);
+    updateConnectionStatus('error');
+  };
+}
+
+// Handle WebSocket messages
+function handleWebSocketMessage(message) {
+  const { type, data, timestamp } = message;
+  
+  console.log(`Received ${type} update at ${timestamp}`);
+  
+  // Add visual feedback for updates
+  showUpdateNotification(type, timestamp);
+  
+  // Refresh the appropriate section based on the update type
+  switch (type) {
+    case 'memories':
+      refreshMemories();
+      break;
+    case 'tasks':
+      refreshTasks();
+      break;
+    case 'contexts':
+      refreshContexts();
+      break;
+    case 'refresh':
+    default:
+      refreshAllData();
+      break;
+  }
+}
+
+// Refresh specific sections
+async function refreshMemories() {
+  const memories = await fetchData(ENDPOINTS.MEMORIES);
+  if (memories) {
+    renderMemories(memories);
+  }
+  // Also update overview stats
+  refreshOverview();
+}
+
+async function refreshTasks() {
+  const tasks = await fetchData(ENDPOINTS.TASKS);
+  if (tasks) {
+    renderTasks(tasks);
+  }
+  // Also update overview stats
+  refreshOverview();
+}
+
+async function refreshContexts() {
+  const contexts = await fetchData(ENDPOINTS.CONTEXTS);
+  if (contexts) {
+    renderContexts(contexts);
+  }
+  // Also update overview stats
+  refreshOverview();
+}
+
+async function refreshOverview() {
+  const overview = await fetchData(ENDPOINTS.OVERVIEW);
+  if (overview) {
+    renderOverview(overview);
+  }
+}
+
+async function refreshAllData() {
+  console.log('Refreshing all data...');
+  await initViewer();
+}
+
+// Update connection status indicator
+function updateConnectionStatus(status) {
+  let statusElement = document.getElementById('connection-status');
+  if (!statusElement) {
+    // Create status indicator if it doesn't exist
+    statusElement = document.createElement('div');
+    statusElement.id = 'connection-status';
+    statusElement.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: bold;
+      z-index: 1000;
+      transition: all 0.3s ease;
+    `;
+    document.body.appendChild(statusElement);
+  }
+  
+  switch (status) {
+    case 'connected':
+      statusElement.textContent = '🟢 Live';
+      statusElement.style.backgroundColor = '#d4edda';
+      statusElement.style.color = '#155724';
+      statusElement.style.border = '1px solid #c3e6cb';
+      break;
+    case 'disconnected':
+      statusElement.textContent = '🔴 Offline';
+      statusElement.style.backgroundColor = '#f8d7da';
+      statusElement.style.color = '#721c24';
+      statusElement.style.border = '1px solid #f5c6cb';
+      break;
+    case 'error':
+      statusElement.textContent = '⚠️ Error';
+      statusElement.style.backgroundColor = '#fff3cd';
+      statusElement.style.color = '#856404';
+      statusElement.style.border = '1px solid #ffeaa7';
+      break;
+  }
+}
+
+// Show update notification
+function showUpdateNotification(type, timestamp) {
+  let notification = document.getElementById('update-notification');
+  if (!notification) {
+    notification = document.createElement('div');
+    notification.id = 'update-notification';
+    notification.style.cssText = `
+      position: fixed;
+      top: 50px;
+      right: 10px;
+      padding: 10px 15px;
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+      border-radius: 5px;
+      font-size: 14px;
+      z-index: 1001;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      max-width: 300px;
+    `;
+    document.body.appendChild(notification);
+  }
+  
+  const updateTime = new Date(timestamp).toLocaleTimeString();
+  notification.textContent = `Updated ${type} at ${updateTime}`;
+  notification.style.opacity = '1';
+  
+  // Hide notification after 3 seconds
+  setTimeout(() => {
+    notification.style.opacity = '0';
+  }, 3000);
+}
+
+// Enhanced initialization
+async function initViewer() {
+  // Load all data in parallel
+  const [overview, tasks, memories, contexts] = await Promise.all([
+    fetchData(ENDPOINTS.OVERVIEW),
+    fetchData(ENDPOINTS.TASKS),
+    fetchData(ENDPOINTS.MEMORIES),
+    fetchData(ENDPOINTS.CONTEXTS)
+  ]);
+
+  // Render all sections
+  renderOverview(overview);
+  renderTasks(tasks);
+  renderMemories(memories);
+  renderContexts(contexts);
+  
+  // Connect to WebSocket for real-time updates
+  connectWebSocket();
+}
+
 // Start the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', initViewer);
+
+// Clean up WebSocket on page unload
+window.addEventListener('beforeunload', () => {
+  if (ws) {
+    ws.close();
+  }
+  if (reconnectInterval) {
+    clearInterval(reconnectInterval);
+  }
+});

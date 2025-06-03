@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const WebSocket = require('ws');
 const { getConfig } = require('../dist/src/config');
 const { MemoryManager } = require('../dist/src/memory');
 const { TaskManager } = require('../dist/src/task');
@@ -228,8 +229,181 @@ const server = http.createServer(async (req, res) => {
   res.end('Not found');
 });
 
+// Create WebSocket server
+const wss = new WebSocket.Server({ server });
+
+// Store connected clients
+const clients = new Set();
+
+// WebSocket connection handling
+wss.on('connection', (ws) => {
+  console.log('Client connected to WebSocket');
+  clients.add(ws);
+  
+  ws.on('close', () => {
+    console.log('Client disconnected from WebSocket');
+    clients.delete(ws);
+  });
+  
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+    clients.delete(ws);
+  });
+});
+
+// Broadcast function to send updates to all connected clients
+function broadcastUpdate(type, data) {
+  const message = JSON.stringify({ type, data, timestamp: new Date().toISOString() });
+  
+  clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      try {
+        client.send(message);
+      } catch (error) {
+        console.error('Error sending WebSocket message:', error);
+        clients.delete(client);
+      }
+    } else {
+      clients.delete(client);
+    }
+  });
+  
+  console.log(`Broadcasted ${type} update to ${clients.size} clients`);
+}
+
+// File system watcher for dataDir
+function setupFileWatcher() {
+  const dataDir = config.dataDir;
+  
+  console.log(`Setting up file watcher for: ${dataDir}`);
+  
+  // Check if directory exists
+  if (!fs.existsSync(dataDir)) {
+    console.error(`Data directory does not exist: ${dataDir}`);
+    return;
+  }
+  
+  // Watch subdirectories individually for better compatibility
+  const subdirs = ['memories', 'tasks', 'contexts'];
+  
+  subdirs.forEach(subdir => {
+    const subdirPath = path.join(dataDir, subdir);
+    
+    if (!fs.existsSync(subdirPath)) {
+      console.log(`Creating missing directory: ${subdirPath}`);
+      fs.mkdirSync(subdirPath, { recursive: true });
+    }
+    
+    console.log(`Setting up watcher for: ${subdirPath}`);
+    
+    try {
+      const watcher = fs.watch(subdirPath, { persistent: true }, (eventType, filename) => {
+        console.log(`File system event in ${subdir}: ${eventType} - ${filename || 'unknown'}`);
+        
+        if (filename) {
+          const fullPath = path.join(subdirPath, filename);
+          console.log(`Full path: ${fullPath}`);
+          console.log(`Event type: ${eventType}`);
+          
+          // Broadcast the update to all connected clients
+          broadcastUpdate(subdir, {
+            eventType,
+            filename,
+            path: fullPath,
+            directory: subdir
+          });
+        } else {
+          // If filename is null, still broadcast a general update
+          console.log(`File change detected in ${subdir} but filename is null`);
+          broadcastUpdate(subdir, {
+            eventType,
+            filename: null,
+            path: subdirPath,
+            directory: subdir
+          });
+        }
+      });
+      
+      watcher.on('error', (error) => {
+        console.error(`File watcher error for ${subdir}:`, error);
+      });
+      
+      console.log(`File watcher setup completed for ${subdir}`);
+    } catch (error) {
+      console.error(`Failed to setup file watcher for ${subdir}:`, error);
+    }
+  });
+  
+  // Also set up a fallback polling method for additional reliability
+  setupPollingWatcher(dataDir);
+}
+
+// Fallback polling watcher
+function setupPollingWatcher(dataDir) {
+  let lastScan = {};
+  
+  const scanDirectory = () => {
+    const subdirs = ['memories', 'tasks', 'contexts'];
+    
+    subdirs.forEach(subdir => {
+      const subdirPath = path.join(dataDir, subdir);
+      
+      if (fs.existsSync(subdirPath)) {
+        try {
+          const files = fs.readdirSync(subdirPath);
+          const currentScan = files.map(file => {
+            const filePath = path.join(subdirPath, file);
+            const stats = fs.statSync(filePath);
+            return {
+              name: file,
+              mtime: stats.mtime.getTime(),
+              size: stats.size
+            };
+          });
+          
+          const lastScanForDir = lastScan[subdir] || [];
+          
+          // Check for changes
+          const hasChanges = currentScan.length !== lastScanForDir.length ||
+            currentScan.some((file, index) => {
+              const lastFile = lastScanForDir[index];
+              return !lastFile || file.name !== lastFile.name || 
+                     file.mtime !== lastFile.mtime || file.size !== lastFile.size;
+            });
+          
+          if (hasChanges && lastScanForDir.length > 0) {
+            console.log(`Polling detected changes in ${subdir}`);
+            broadcastUpdate(subdir, {
+              eventType: 'change',
+              filename: 'polling-detected',
+              path: subdirPath,
+              directory: subdir,
+              method: 'polling'
+            });
+          }
+          
+          lastScan[subdir] = currentScan;
+        } catch (error) {
+          console.error(`Error scanning directory ${subdir}:`, error);
+        }
+      }
+    });
+  };
+  
+  // Initial scan
+  scanDirectory();
+  
+  // Poll every 2 seconds
+  setInterval(scanDirectory, 2000);
+  
+  console.log('Polling watcher setup completed');
+}
+
 // Start server
 server.listen(PORT, () => {
   console.log(`MemTask Web Viewer running at http://localhost:${PORT}/`);
   console.log(`Serving static files from: ${PUBLIC_DIR}`);
+  
+  // Setup file watcher after server starts
+  setupFileWatcher();
 });
