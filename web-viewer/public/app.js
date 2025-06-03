@@ -81,12 +81,14 @@ function renderTasks(tasks) {
   tasks.forEach(task => {
     html += `
       <div class="task clickable" data-id="${task.id}" data-type="tasks">
-        <div class="task-title">${task.title}</div>
-        <div class="task-meta">
-          <span class="task-status">${task.status}</span>
-          <span class="task-priority priority-${task.priority}">${task.priority}</span>
+        <div class="card-header">
+          <div class="task-title">${task.title}</div>
+          <div class="task-meta">
+            <span class="task-status">${task.status}</span>
+            <span class="task-priority priority-${task.priority}">${task.priority}</span>
+          </div>
         </div>
-        <div class="details-container" id="details-tasks-${task.id}" style="display: none;"></div>
+        <div class="details-container content-area" id="details-tasks-${task.id}" style="display: none;"></div>
       </div>
     `;
   });
@@ -106,9 +108,11 @@ function renderMemories(memories) {
   memories.forEach(memory => {
     html += `
       <div class="memory clickable" data-id="${memory.id}" data-type="memories">
-        <div class="memory-summary">${memory.summary}</div>
-        <div>${formatDate(memory.created_at)}</div>
-        <div class="details-container" id="details-memories-${memory.id}" style="display: none;"></div>
+        <div class="card-header">
+          <div class="memory-summary">${memory.summary}</div>
+          <div>${formatDate(memory.created_at)}</div>
+        </div>
+        <div class="details-container content-area" id="details-memories-${memory.id}" style="display: none;"></div>
       </div>
     `;
   });
@@ -128,9 +132,11 @@ function renderContexts(contexts) {
   contexts.forEach(context => {
     html += `
       <div class="context clickable" data-id="${context.id}" data-type="contexts">
-        <div class="context-summary">${context.summary}</div>
-        <div>${formatDate(context.created_at)}</div>
-        <div class="details-container" id="details-contexts-${context.id}" style="display: none;"></div>
+        <div class="card-header">
+          <div class="context-summary">${context.summary}</div>
+          <div>${formatDate(context.created_at)}</div>
+        </div>
+        <div class="details-container content-area" id="details-contexts-${context.id}" style="display: none;"></div>
       </div>
     `;
   });
@@ -171,18 +177,21 @@ async function handleItemClick(event) {
   const type = element.dataset.type;
   const detailsContainer = document.getElementById(`details-${type}-${id}`);
   
-  if (detailsContainer.style.display === 'none') {
-    // Show details
-    const detailData = await fetchData(`/api/${type}/${id}`);
-    if (detailData) {
-      renderDetails(detailsContainer, detailData, type);
-      detailsContainer.style.display = 'block';
-      element.classList.add('expanded');
+  // Only toggle if not clicking on content area or elements with data-ignore-toggle
+  if (!event.target.closest('.content-area') && !event.target.closest('[data-ignore-toggle]')) {
+    if (detailsContainer.style.display === 'none') {
+      // Show details
+      const detailData = await fetchData(`/api/${type}/${id}`);
+      if (detailData) {
+        renderDetails(detailsContainer, detailData, type);
+        detailsContainer.style.display = 'block';
+        element.classList.add('expanded');
+      }
+    } else {
+      // Hide details
+      detailsContainer.style.display = 'none';
+      element.classList.remove('expanded');
     }
-  } else {
-    // Hide details
-    detailsContainer.style.display = 'none';
-    element.classList.remove('expanded');
   }
 }
 
