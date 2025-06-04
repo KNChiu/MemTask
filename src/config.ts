@@ -32,10 +32,34 @@ export interface SystemConfig {
 }
 
 /**
+ * Parse command line arguments for data directory
+ */
+function parseDataDirFromArgs(): string | null {
+  const args = process.argv.slice(2);
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    // Handle --data-dir=<path> format
+    if (arg.startsWith('--data-dir=')) {
+      const value = arg.split('=')[1];
+      return value && value.trim() ? value.trim() : null;
+    }
+
+    // Handle --data-dir <path> format
+    if (arg === '--data-dir' && i + 1 < args.length) {
+      const value = args[i + 1];
+      return value && value.trim() ? value.trim() : null;
+    }
+  }
+
+  return null;
+}
+/**
  * Default Configuration
  */
 export const defaultConfig: SystemConfig = {
-  dataDir: process.env.MCP_DATA_DIR || path.join(process.cwd(), 'mcp_data'),
+  dataDir: parseDataDirFromArgs() || process.env.MCP_DATA_DIR || path.join(process.cwd(), 'mcp_data'),
   memoriesPath: '',  // Will be set in getConfig
   tasksPath: '',     // Will be set in getConfig
   contextsPath: '',  // Will be set in getConfig
@@ -105,3 +129,4 @@ export function getConfig(): SystemConfig {
   
   return config;
 }
+

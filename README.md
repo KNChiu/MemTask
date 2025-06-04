@@ -58,7 +58,7 @@ node {path}/dist/index.js --env MCP_DATA_DIR={path}/mcp_data
 
 The server includes a web-based monitoring dashboard that provides real-time insights into the system's operations. To access the dashboard:
 
-1. Start the server in development mode: `node web-viewer/server.js`
+1. Start the server in development mode: `node web-viewer/server.js --data-dir {mcp_data_dir}`
 2. Open your browser to `http://localhost:8080`
 
 The dashboard displays:
