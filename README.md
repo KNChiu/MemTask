@@ -274,11 +274,9 @@ The dashboard displays:
 3. Manage memories and tasks via tool invocation MCP
 
 ### Extension Features
-1. **Vector Search**: Integrate ChromaDB or other vector databases
-2. **AI Summarization**: Use LLM to automatically generate memory summaries
-3. **Scheduling**: Add scheduled task reminders
-4. **Collaboration**: Multi-user memory and task sharing
-5. **Backup & Sync**: Cloud backup and ...
+1. **Scheduling**: Add scheduled task reminders
+2. **Collaboration**: Multi-user memory and task sharing
+3. **Backup & Sync**: Cloud backup and ...
 
 ## Performance Optimizations
 
