@@ -694,16 +694,6 @@ export class MemoryContextServer {
             // Generate system overview
             const overview = `# Memory Context System Overview
 
-## System Statistics
-
-| Metric | Count |
-|--------|-------|
-| Total Memories | ${memories.length} |
-| Total Tasks | ${tasks.length} |
-| Active Tasks | ${activeTasks.length} |
-| Context Snapshots | ${contexts.length} |
-| Overall Cache Hit Rate | ${overallHitRate}% |
-
 ## Recent Memories
 
 ${memories.length === 0 ? '*No memories found*' : 
@@ -744,24 +734,6 @@ ${contexts.length === 0 ? '*No context snapshots found*' :
 | Completed | ${taskStats.completed} |
 | Cancelled | ${taskStats.cancelled} |
 | **Total** | **${tasks.length}** |
-
-## Memory Tags Analysis
-
-${topTags.length === 0 ? '*No tags found*' :
-    `| Rank | Tag | Usage Count |
-|------|-----|-------------|
-${topTags.map(([tag, count], i) => 
-    `| ${i + 1} | ${tag} | ${count} |`
-).join('\n')}`}
-
-## Cache Performance Metrics
-
-| Component | Hits | Misses | Hit Rate | Total Requests |
-|-----------|------|--------|----------|----------------|
-| Memory Cache | ${memoryCache.hits} | ${memoryCache.misses} | ${memoryCache.hits + memoryCache.misses > 0 ? ((memoryCache.hits / (memoryCache.hits + memoryCache.misses)) * 100).toFixed(1) + '%' : 'N/A'} | ${memoryCache.hits + memoryCache.misses} |
-| Task Cache | ${taskCache.hits} | ${taskCache.misses} | ${taskCache.hits + taskCache.misses > 0 ? ((taskCache.hits / (taskCache.hits + taskCache.misses)) * 100).toFixed(1) + '%' : 'N/A'} | ${taskCache.hits + taskCache.misses} |
-| Context Cache | ${contextCache.hits} | ${contextCache.misses} | ${contextCache.hits + contextCache.misses > 0 ? ((contextCache.hits / (contextCache.hits + contextCache.misses)) * 100).toFixed(1) + '%' : 'N/A'} | ${contextCache.hits + contextCache.misses} |
-| **Overall** | **${totalHits}** | **${totalMisses}** | **${overallHitRate}%** | **${totalHits + totalMisses}** |
 
 ## System Health Summary
 
