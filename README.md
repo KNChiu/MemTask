@@ -43,6 +43,10 @@ npm run dev
 npm run build
 npm start
 
+# npx execution
+npm run build
+npx server-memory-task
+
 # local server
 npm run build
 npm link
