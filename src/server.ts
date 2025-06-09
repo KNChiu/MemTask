@@ -458,7 +458,7 @@ export class MemoryContextServer {
                   content: [
                     {
                       type: 'text',
-                      text: `Memory details:\nID: ${memory.id}\nSummary: ${memory.summary}\nTags: ${memory.metadata.tags.join(', ')}\nCreated at: ${memory.metadata.created_at}`
+                      text: `Memory details:\nID: ${memory.id}\nSummary: ${memory.summary}\nContent: ${memory.content}\nTags: ${memory.metadata.tags.join(', ')}\nCreated at: ${memory.metadata.created_at}\nUpdated at: ${memory.metadata.updated_at}`
                     }
                   ]
                 };
@@ -467,12 +467,16 @@ export class MemoryContextServer {
               case 'search': {
                 const results = await this.memoryManager.searchMemory(params);
                 
+                const truncateContent = (content: string, maxLength: number = 100) => {
+                  return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+                };
+                
                 return {
                   content: [
                     {
                       type: 'text',
                       text: `Found ${results.length} related memories:\n\n${results.map(r => 
-                        `ID: ${r.memory.id}\nSummary: ${r.memory.summary}\nTags: ${r.memory.metadata.tags.join(', ')}\nCreated at: ${r.memory.metadata.created_at}\nSimilarity: ${r.similarity.toFixed(2)}\n---`
+                        `ID: ${r.memory.id}\nSummary: ${r.memory.summary}\nContent Preview: ${truncateContent(r.memory.content)}\nTags: ${r.memory.metadata.tags.join(', ')}\nCreated at: ${r.memory.metadata.created_at}\nSimilarity: ${r.similarity.toFixed(2)}\n---`
                       ).join('\n')}`
                     }
                   ]
@@ -482,12 +486,16 @@ export class MemoryContextServer {
               case 'list': {
                 const memories = await this.memoryManager.listMemories(params);
 
+                const truncateContent = (content: string, maxLength: number = 100) => {
+                  return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+                };
+
                 return {
                   content: [
                     {
                       type: 'text',
                       text: `Total ${memories.length} memories:\n\n${memories.map(m => 
-                        `ID: ${m.id}\nSummary: ${m.summary}\nTags: ${m.metadata.tags.join(', ')}\nCreated at: ${m.metadata.created_at}\n---`
+                        `ID: ${m.id}\nSummary: ${m.summary}\nContent Preview: ${truncateContent(m.content)}\nTags: ${m.metadata.tags.join(', ')}\nCreated at: ${m.metadata.created_at}\n---`
                       ).join('\n')}`
                     }
                   ]
@@ -550,11 +558,19 @@ export class MemoryContextServer {
                   };
                 }
 
+                const linkedMemoriesText = task.linked_memories.length > 0 ? 
+                  `Linked memories:\n${task.linked_memories.map(id => `  - ${id}`).join('\n')}` : 
+                  'Linked memories: None';
+                
+                const progressNotesText = task.progress_notes.length > 0 ? 
+                  `Progress notes:\n${task.progress_notes.map((note, i) => `  ${i + 1}. ${note}`).join('\n')}` : 
+                  'Progress notes: None';
+
                 return {
                   content: [
                     {
                       type: 'text',
-                      text: `Task details:\nID: ${task.id}\nTitle: ${task.title}\nDescription: ${task.description}\nStatus: ${task.status}\nPriority: ${task.priority}\nTags: ${task.tags.join(', ')}\nCreated at: ${task.created_at}\nLast updated: ${task.updated_at}\nLinked memories: ${task.linked_memories.length}\nProgress notes: ${task.progress_notes.length}`
+                      text: `Task details:\nID: ${task.id}\nTitle: ${task.title}\nDescription: ${task.description}\nStatus: ${task.status}\nPriority: ${task.priority}\nTags: ${task.tags.join(', ')}\nCreated at: ${task.created_at}\nLast updated: ${task.updated_at}\nDue date: ${task.due_date || 'Not set'}\n${linkedMemoriesText}\n${progressNotesText}`
                     }
                   ]
                 };
@@ -600,12 +616,16 @@ export class MemoryContextServer {
               case 'list': {
                 const tasks = await this.taskManager.listTasks(params);
 
+                const truncateDescription = (description: string, maxLength: number = 100) => {
+                  return description.length > maxLength ? description.substring(0, maxLength) + '...' : description;
+                };
+
                 return {
                   content: [
                     {
                       type: 'text',
                       text: `Total ${tasks.length} tasks:\n\n${tasks.map(t => 
-                        `ID: ${t.id}\nTitle: ${t.title}\nStatus: ${t.status}\nPriority: ${t.priority}\nTags: ${t.tags.join(', ')}\n---`
+                        `ID: ${t.id}\nTitle: ${t.title}\nDescription Preview: ${truncateDescription(t.description)}\nStatus: ${t.status}\nPriority: ${t.priority}\nTags: ${t.tags.join(', ')}\n---`
                       ).join('\n')}`
                     }
                   ]
@@ -615,12 +635,16 @@ export class MemoryContextServer {
               case 'search': {
                 const tasks = await this.taskManager.searchTask(params);
                 
+                const truncateDescription = (description: string, maxLength: number = 100) => {
+                  return description.length > maxLength ? description.substring(0, maxLength) + '...' : description;
+                };
+                
                 return {
                   content: [
                     {
                       type: 'text',
                       text: `Found ${tasks.length} related tasks:\n\n${tasks.map(t => 
-                        `ID: ${t.task.id}\nTitle: ${t.task.title}\nStatus: ${t.task.status}\nPriority: ${t.task.priority}\nTags: ${t.task.tags.join(', ')}\nSimilarity: ${t.similarity.toFixed(2)}\n---`
+                        `ID: ${t.task.id}\nTitle: ${t.task.title}\nDescription Preview: ${truncateDescription(t.task.description)}\nStatus: ${t.task.status}\nPriority: ${t.task.priority}\nTags: ${t.task.tags.join(', ')}\nSimilarity: ${t.similarity.toFixed(2)}\n---`
                       ).join('\n')}`
                     }
                   ]
