@@ -33,6 +33,7 @@ export interface Task {
   due_date?: string;
   linked_memories: string[];
   progress_notes: string[];
+  depends_on: string[];
 }
 
 /**
@@ -93,6 +94,7 @@ export type CreateTaskArgs = {
   tags?: string[];
   due_date?: string;
   linked_memories?: string[];
+  depends_on?: string[];
 };
 
 export type UpdateTaskArgs = {
@@ -102,6 +104,7 @@ export type UpdateTaskArgs = {
   description?: string;
   priority?: 'low' | 'medium' | 'high';
   progress_note?: string;
+  depends_on?: string[];
 };
 
 export type GetTaskStatusArgs = {

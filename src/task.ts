@@ -103,6 +103,30 @@ export class TaskManager {
   }
 
   /**
+   * Get next sequential task ID
+   */
+  private async getNextTaskId(): Promise<string> {
+    try {
+      const tasks = await this.list();
+      if (tasks.length === 0) {
+        return '1';
+      }
+      
+      // Find the highest numeric ID
+      const maxId = Math.max(
+        ...tasks
+          .map(task => parseInt(task.id))
+          .filter(id => !isNaN(id))
+      );
+      
+      return String(maxId + 1);
+    } catch (error) {
+      this.console.error('Failed to generate next task ID:', error);
+      return '1';
+    }
+  }
+
+  /**
    * Create task
    * @param args Create task parameters
    */
@@ -146,8 +170,16 @@ export class TaskManager {
         linked_memories = args.linked_memories.map(id => String(id));
       }
       
+      // Validate dependencies
+      let depends_on: string[] = [];
+      if (args.depends_on && Array.isArray(args.depends_on)) {
+        depends_on = args.depends_on.map(id => String(id));
+        await this.validateDependencies(depends_on);
+      }
+      
+      const taskId = await this.getNextTaskId();
       const task: Task = {
-        id: crypto.randomUUID(),
+        id: taskId,
         title,
         description,
         status: 'todo',
@@ -157,7 +189,8 @@ export class TaskManager {
         updated_at: new Date().toISOString(),
         due_date,
         linked_memories,
-        progress_notes: []
+        progress_notes: [],
+        depends_on
       };
       
       await this.save(task.id, task);
@@ -206,6 +239,14 @@ export class TaskManager {
       if (args.progress_note) {
         const note = args.progress_note.substring(0, 1000).replace(/[<>]/g, '');
         task.progress_notes.push(`${new Date().toISOString()}: ${note}`);
+      }
+      
+      if (args.depends_on !== undefined) {
+        if (Array.isArray(args.depends_on)) {
+          const depends_on = args.depends_on.map(id => String(id));
+          await this.validateDependencies(depends_on);
+          task.depends_on = depends_on;
+        }
       }
       
       task.updated_at = new Date().toISOString();
@@ -454,6 +495,85 @@ export class TaskManager {
     } catch (error) {
       this.console.error('Failed to batch get tasks:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Validate task dependencies
+   * @param dependsOn Array of task IDs
+   */
+  private async validateDependencies(dependsOn: string[]): Promise<void> {
+    if (!dependsOn || dependsOn.length === 0) {
+      return;
+    }
+
+    for (const taskId of dependsOn) {
+      const dependentTask = await this.load(taskId);
+      if (!dependentTask) {
+        throw new Error(`Dependent task ${taskId} does not exist`);
+      }
+    }
+  }
+
+  /**
+   * Get tasks that are ready to execute (dependencies satisfied)
+   */
+  async getExecutableTasks(): Promise<Task[]> {
+    try {
+      const allTasks = await this.list();
+      const executableTasks: Task[] = [];
+
+      for (const task of allTasks) {
+        if (task.status === 'completed' || task.status === 'cancelled') {
+          continue;
+        }
+
+        const canExecute = await this.canTaskExecute(task);
+        if (canExecute) {
+          executableTasks.push(task);
+        }
+      }
+
+      return executableTasks;
+    } catch (error) {
+      this.console.error('Failed to get executable tasks:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if a task can be executed (all dependencies completed)
+   * @param task Task to check
+   */
+  private async canTaskExecute(task: Task): Promise<boolean> {
+    if (!task.depends_on || task.depends_on.length === 0) {
+      return true;
+    }
+
+    for (const dependentId of task.depends_on) {
+      const dependentTask = await this.load(dependentId);
+      if (!dependentTask || dependentTask.status !== 'completed') {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Get tasks ordered by numeric ID
+   */
+  async getTasksInOrder(): Promise<Task[]> {
+    try {
+      const tasks = await this.list();
+      return tasks.sort((a, b) => {
+        const idA = parseInt(a.id);
+        const idB = parseInt(b.id);
+        return idA - idB;
+      });
+    } catch (error) {
+      this.console.error('Failed to get tasks in order:', error);
+      return [];
     }
   }
 

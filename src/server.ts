@@ -329,7 +329,8 @@ export class MemoryContextServer {
                   "priority": "high",
                   "tags": ["development", "prototype"],
                   "due_date": "2024-12-31T23:59:59Z",
-                  "linked_memories": ["memory-id-1", "memory-id-2"]
+                  "linked_memories": ["memory-id-1", "memory-id-2"],
+                  "depends_on": ["1", "2"]
                 }
               }, null, 2) + '\n\n' +
               JSON.stringify({
@@ -366,9 +367,10 @@ export class MemoryContextServer {
                 tags: { type: 'array', items: { type: 'string' }, description: 'Tags (for create/update/list/search operations)' },
                 due_date: { type: 'string', description: 'Due date in ISO format (for create/update operations)' },
                 linked_memories: { type: 'array', items: { type: 'string' }, description: 'Related memory IDs (for create/update operations)' },
+                depends_on: { type: 'array', items: { type: 'string' }, description: 'Task IDs this task depends on (for create/update operations)' },
                 progress_note: { type: 'string', description: 'Progress note (for update operation)' },
                 query: { type: 'string', description: 'Search query (for search operation)' },
-                limit: { type: 'number', description: 'Result limit (for list/search operations)', default: 10 }
+                limit: { type: 'number', description: 'result limit (for list/search operations)', default: 10 }
               },
               required: ['operation']
             }
@@ -534,11 +536,24 @@ export class MemoryContextServer {
             switch (operation) {
               case 'create': {
                 const task = await this.taskManager.createTask(params);
+                const executableTasks = await this.taskManager.getExecutableTasks();
+                const isExecutable = executableTasks.some(t => t.id === task.id);
+                const dependsText = task.depends_on && task.depends_on.length > 0 ? 
+                  `\nDependencies: ${task.depends_on.join(', ')}` : '';
+                const statusText = isExecutable ? 
+                  '\nStatus: Ready to execute' : 
+                  (task.depends_on && task.depends_on.length > 0 ? 
+                    '\nStatus: Waiting for dependencies to complete' : 
+                    '\nStatus: Ready to execute');
+                const nextAction = isExecutable ? 
+                  '\nNext: Use task_tool update to set status to "in_progress" when ready to start' :
+                  '\nNext: Complete dependent tasks first, then use overview to check executable tasks';
+                
                 return {
                   content: [
                     {
                       type: 'text',
-                      text: `Task created successfully. ID: ${task.id}\nTitle: ${task.title}\nPriority: ${task.priority}`
+                      text: `Task ${task.id} created successfully.\nTitle: ${task.title}\nPriority: ${task.priority}${dependsText}${statusText}${nextAction}`
                     }
                   ]
                 };
@@ -590,11 +605,30 @@ export class MemoryContextServer {
                   };
                 }
                 
+                // Check for unlocked tasks if this task was completed
+                let unlockedTasksText = '';
+                if (task.status === 'completed') {
+                  const allTasks = await this.taskManager.getTasksInOrder();
+                  const unlockedTasks = allTasks.filter(t => 
+                    t.depends_on && t.depends_on.includes(task.id) && 
+                    t.status !== 'completed' && t.status !== 'cancelled'
+                  );
+                  if (unlockedTasks.length > 0) {
+                    unlockedTasksText = `\nUnlocked tasks: ${unlockedTasks.map(t => `Task ${t.id}`).join(', ')}`;
+                  }
+                }
+                
+                // Get next action suggestion
+                const executableTasks = await this.taskManager.getExecutableTasks();
+                const nextActionText = executableTasks.length > 0 ? 
+                  `\nNext: ${executableTasks.length} task(s) ready to execute. Use overview to see them.` :
+                  '\nNext: Use overview to check system status and plan next steps.';
+                
                 return {
                   content: [
                     {
                       type: 'text',
-                      text: `Task ${task.id} updated successfully.\nStatus: ${task.status}\nLast updated: ${task.updated_at}`
+                      text: `Task ${task.id} updated successfully.\nStatus: ${task.status}\nLast updated: ${task.updated_at}${unlockedTasksText}${nextActionText}`
                     }
                   ]
                 };
@@ -615,18 +649,37 @@ export class MemoryContextServer {
               
               case 'list': {
                 const tasks = await this.taskManager.listTasks(params);
+                const executableTasks = await this.taskManager.getExecutableTasks();
 
                 const truncateDescription = (description: string, maxLength: number = 100) => {
                   return description.length > maxLength ? description.substring(0, maxLength) + '...' : description;
                 };
 
+                // Sort tasks by numeric ID for better order display
+                const sortedTasks = tasks.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+                
+                const taskList = sortedTasks.map(t => {
+                  const isExecutable = executableTasks.some(et => et.id === t.id);
+                  const statusIcon = t.status === 'completed' ? 'DONE' : 
+                                    t.status === 'in_progress' ? 'ACTIVE' : 
+                                    t.status === 'cancelled' ? 'CANCELLED' :
+                                    isExecutable ? 'READY' : 'WAITING';
+                  const dependsText = t.depends_on && t.depends_on.length > 0 ? 
+                    `\nDepends on: ${t.depends_on.join(', ')}` : '';
+                  
+                  return `Task ${t.id}: ${t.title}\nStatus: ${statusIcon} | Priority: ${t.priority}\nDescription: ${truncateDescription(t.description)}${dependsText}\n---`;
+                }).join('\n');
+
+                const executableCount = executableTasks.filter(t => tasks.some(lt => lt.id === t.id)).length;
+                const suggestion = executableCount > 0 ? 
+                  `\n${executableCount} task(s) ready to execute. Consider starting with task_tool update.` :
+                  '\nUse overview to see all tasks with dependency information.';
+
                 return {
                   content: [
                     {
                       type: 'text',
-                      text: `Total ${tasks.length} tasks:\n\n${tasks.map(t => 
-                        `ID: ${t.id}\nTitle: ${t.title}\nDescription Preview: ${truncateDescription(t.description)}\nStatus: ${t.status}\nPriority: ${t.priority}\nTags: ${t.tags.join(', ')}\n---`
-                      ).join('\n')}`
+                      text: `Total ${tasks.length} tasks:\n\n${taskList}${suggestion}`
                     }
                   ]
                 };
@@ -689,6 +742,9 @@ export class MemoryContextServer {
         
             // Calculate statistics
             const activeTasks = tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled');
+            const executableTasks = await this.taskManager.getExecutableTasks();
+            const tasksInOrder = await this.taskManager.getTasksInOrder();
+            
             const taskStats = {
                 todo: tasks.filter(t => t.status === 'todo').length,
                 inProgress: tasks.filter(t => t.status === 'in_progress').length,
@@ -729,16 +785,20 @@ ${memories.length === 0 ? '*No memories found*' :
 `
     ).join('\n')}
 
-## Active Tasks
+## Tasks (In Sequential Order)
 
-${activeTasks.length === 0 ? '*No active tasks*' : 
-    activeTasks.slice(0, 8).map((t, i) => 
-        `### ${i + 1}. ${truncateText(t.title)}
-**Status:** ${t.status.toUpperCase()}  
-**Priority:** ${(t.priority || 'normal').toUpperCase()}  
-**ID:** \`${t.id}\`
-`
-    ).join('\n')}
+${tasksInOrder.length === 0 ? '*No tasks found*' : 
+    tasksInOrder.slice(0, 10).map((t) => {
+        const isExecutable = executableTasks.some(et => et.id === t.id);
+        const dependsText = t.depends_on && t.depends_on.length > 0 ? ` (depends on: ${t.depends_on.join(', ')})` : '';
+        const statusIcon = t.status === 'completed' ? 'DONE' : 
+                          t.status === 'in_progress' ? 'ACTIVE' : 
+                          t.status === 'cancelled' ? 'CANCELLED' :
+                          isExecutable ? 'READY' : 'WAITING';
+        
+        return `### Task ${t.id}: ${truncateText(t.title)}
+**Status:** ${statusIcon} | **Priority:** ${t.priority.toUpperCase()}${dependsText}`;
+    }).join('\n\n')}
 
 ## Recent Context Snapshots
 
@@ -765,6 +825,19 @@ ${contexts.length === 0 ? '*No context snapshots found*' :
 **Task Management:** ${tasks.length > 0 ? `${activeTasks.length} active out of ${tasks.length} total` : 'No tasks'}  
 **Context Tracking:** ${contexts.length > 0 ? 'Active' : 'No snapshots'}  
 **Cache Efficiency:** ${parseFloat(overallHitRate) > 80 ? 'Excellent' : parseFloat(overallHitRate) > 60 ? 'Good' : parseFloat(overallHitRate) > 40 ? 'Fair' : 'Poor'}
+
+## Next Actions Recommended
+
+${tasks.length === 0 ? 
+    '**Suggestion:** Create your first task using task_tool with operation "create"' :
+    executableTasks.length === 0 ? 
+        (activeTasks.length === 0 ? 
+            '**All tasks completed!** Consider creating new tasks or reviewing completed work.' :
+            '**No executable tasks found.** Check task dependencies or update task status.') :
+        `**Ready to execute:** ${executableTasks.length} task(s) available\n${executableTasks.slice(0, 3).map(t => 
+            `- Task ${t.id}: ${truncateText(t.title, 50)}`
+        ).join('\n')}\n\n**Suggestion:** Use task_tool with operation "update" to start working on these tasks.`
+}
 
 ---
 *Report generated at: ${new Date()}*
