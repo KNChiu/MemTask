@@ -9,6 +9,10 @@
 <body>
     <header>
         <h1>MemTask System Viewer</h1>
+        <div class="view-toggle">
+            <button id="list-view-btn" class="view-btn active">List View</button>
+            <button id="kanban-view-btn" class="view-btn">Kanban Board</button>
+        </div>
     </header>
     <main class="dashboard-container">
         <!-- Row 1: System Overview only -->
@@ -34,6 +38,35 @@
             <section class="widget" id="context-view">
                 <h2>Context Snapshots</h2>
                 <div id="context-container"></div>
+            </section>
+        </div>
+    </main>
+    
+    <!-- Kanban Board Container (initially hidden) -->
+    <main id="kanban-container" class="dashboard-container" style="display: none;">
+        <!-- Row 1: Task Progress Overview -->
+        <div class="dashboard-row overview-row">
+            <section class="widget" id="kanban-dashboard">
+                <h2>Task Progress</h2>
+                <div id="kanban-progress"></div>
+            </section>
+        </div>
+        
+        <!-- Row 2: Todo, In Progress, Completed (並排) -->
+        <div class="dashboard-row widgets-row">
+            <section class="widget" id="kanban-todo-section">
+                <h2 class="kanban-column-title todo-section">Todo</h2>
+                <div id="kanban-todo" class="kanban-column-content"></div>
+            </section>
+            
+            <section class="widget" id="kanban-in-progress-section">
+                <h2 class="kanban-column-title in-progress-section">In Progress</h2>
+                <div id="kanban-in-progress" class="kanban-column-content"></div>
+            </section>
+            
+            <section class="widget" id="kanban-completed-section">
+                <h2 class="kanban-column-title completed-section">Completed</h2>
+                <div id="kanban-completed" class="kanban-column-content"></div>
             </section>
         </div>
     </main>

@@ -161,7 +161,6 @@ const server = http.createServer(async (req, res) => {
                       ...task,
                       id: task.id || id
                     };
-                    console.log('Task details:', data); // Debug log
                   } else {
                     data = { error: 'Task not found' };
                   }
@@ -179,7 +178,6 @@ const server = http.createServer(async (req, res) => {
                       ...memory,
                       id: memory.id || id
                     };
-                    console.log('Memory details:', data); // Debug log
                   } else {
                     data = { error: 'Memory not found' };
                   }
@@ -197,7 +195,6 @@ const server = http.createServer(async (req, res) => {
                       ...context,
                       id: context.id || id
                     };
-                    console.log('Context details:', data); // Debug log
                   } else {
                     data = { error: 'Context not found' };
                   }
@@ -237,11 +234,9 @@ const clients = new Set();
 
 // WebSocket connection handling
 wss.on('connection', (ws) => {
-  console.log('Client connected to WebSocket');
   clients.add(ws);
   
   ws.on('close', () => {
-    console.log('Client disconnected from WebSocket');
     clients.delete(ws);
   });
   
@@ -258,42 +253,36 @@ function clearManagerCaches(type, filename) {
       case 'memories':
         if (filename && filename.endsWith('.json')) {
           const id = filename.replace('.json', '');
-          console.log(`Clearing memory cache for ID: ${id}`);
           if (memoryManager.cache && typeof memoryManager.cache.delete === 'function') {
             memoryManager.cache.delete(id);
           }
           // Clear entire cache if we can't target specific item
           if (memoryManager.cache && typeof memoryManager.cache.clear === 'function') {
             memoryManager.cache.clear();
-            console.log('Cleared entire memory cache');
           }
         }
         break;
       case 'tasks':
         if (filename && filename.endsWith('.json')) {
           const id = filename.replace('.json', '');
-          console.log(`Clearing task cache for ID: ${id}`);
           if (taskManager.cache && typeof taskManager.cache.delete === 'function') {
             taskManager.cache.delete(id);
           }
           // Clear entire cache if we can't target specific item
           if (taskManager.cache && typeof taskManager.cache.clear === 'function') {
             taskManager.cache.clear();
-            console.log('Cleared entire task cache');
           }
         }
         break;
       case 'contexts':
         if (filename && filename.endsWith('.json')) {
           const id = filename.replace('.json', '');
-          console.log(`Clearing context cache for ID: ${id}`);
           if (contextManager.cache && typeof contextManager.cache.delete === 'function') {
             contextManager.cache.delete(id);
           }
           // Clear entire cache if we can't target specific item
           if (contextManager.cache && typeof contextManager.cache.clear === 'function') {
             contextManager.cache.clear();
-            console.log('Cleared entire context cache');
           }
         }
         break;
@@ -322,15 +311,11 @@ function broadcastUpdate(type, data) {
       clients.delete(client);
     }
   });
-  
-  console.log(`Broadcasted ${type} update to ${clients.size} clients`);
 }
 
 // File system watcher for dataDir
 function setupFileWatcher() {
   const dataDir = config.dataDir;
-  
-  console.log(`Setting up file watcher for: ${dataDir}`);
   
   // Check if directory exists
   if (!fs.existsSync(dataDir)) {
@@ -345,20 +330,13 @@ function setupFileWatcher() {
     const subdirPath = path.join(dataDir, subdir);
     
     if (!fs.existsSync(subdirPath)) {
-      console.log(`Creating missing directory: ${subdirPath}`);
       fs.mkdirSync(subdirPath, { recursive: true });
     }
     
-    console.log(`Setting up watcher for: ${subdirPath}`);
-    
     try {
       const watcher = fs.watch(subdirPath, { persistent: true }, (eventType, filename) => {
-        console.log(`File system event in ${subdir}: ${eventType} - ${filename || 'unknown'}`);
-        
         if (filename) {
           const fullPath = path.join(subdirPath, filename);
-          console.log(`Full path: ${fullPath}`);
-          console.log(`Event type: ${eventType}`);
           
           // Broadcast the update to all connected clients
           broadcastUpdate(subdir, {
@@ -369,7 +347,6 @@ function setupFileWatcher() {
           });
         } else {
           // If filename is null, still broadcast a general update
-          console.log(`File change detected in ${subdir} but filename is null`);
           broadcastUpdate(subdir, {
             eventType,
             filename: null,
@@ -382,8 +359,6 @@ function setupFileWatcher() {
       watcher.on('error', (error) => {
         console.error(`File watcher error for ${subdir}:`, error);
       });
-      
-      console.log(`File watcher setup completed for ${subdir}`);
     } catch (error) {
       console.error(`Failed to setup file watcher for ${subdir}:`, error);
     }
@@ -421,7 +396,7 @@ function setupPollingWatcher(dataDir) {
                 isFile: stats.isFile()
               };
             } catch (statError) {
-              console.log(`Could not stat file ${filePath}:`, statError.message);
+              // Ignore stat errors for cleanup
             }
           });
           
@@ -440,7 +415,6 @@ function setupPollingWatcher(dataDir) {
               // New file
               hasChanges = true;
               changedFiles.push({ name: filename, change: 'added' });
-              console.log(`Polling detected new file: ${filename}`);
             } else if (
               currentFile.mtime !== lastFile.mtime || 
               currentFile.ctime !== lastFile.ctime ||
@@ -449,7 +423,6 @@ function setupPollingWatcher(dataDir) {
               // Modified file
               hasChanges = true;
               changedFiles.push({ name: filename, change: 'modified' });
-              console.log(`Polling detected modified file: ${filename} (mtime: ${currentFile.mtime} vs ${lastFile.mtime}, size: ${currentFile.size} vs ${lastFile.size})`);
             }
           });
           
@@ -458,12 +431,10 @@ function setupPollingWatcher(dataDir) {
             if (!currentScan[filename]) {
               hasChanges = true;
               changedFiles.push({ name: filename, change: 'deleted' });
-              console.log(`Polling detected deleted file: ${filename}`);
             }
           });
           
           if (hasChanges && Object.keys(lastScanForDir).length > 0) {
-            console.log(`Polling detected changes in ${subdir}:`, changedFiles);
             broadcastUpdate(subdir, {
               eventType: 'change',
               filename: 'polling-detected',
@@ -487,8 +458,6 @@ function setupPollingWatcher(dataDir) {
   
   // Poll every 1 second for better responsiveness
   setInterval(scanDirectory, 1000);
-  
-  console.log('Polling watcher setup completed (1 second interval)');
 }
 
 // Start server
