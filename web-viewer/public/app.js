@@ -258,7 +258,7 @@ function renderTasks(tasks) {
     html += `
       <div class="task clickable" data-id="${task.id}" data-type="tasks">
         <div class="card-header">
-          <div class="task-title">${task.title}</div>
+          <div class="task-title">${task.id}-${task.title}</div>
           <div class="task-meta">
             <span class="task-status">${task.status}</span>
             <span class="task-priority priority-${task.priority}">${task.priority}</span>
@@ -320,7 +320,7 @@ function renderKanbanBoard(tasks) {
       statusTasks.forEach(task => {
         html += `
           <div class="kanban-task clickable" data-id="${task.id}" data-type="tasks" style="background: #fff; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #ddd;">
-            <div class="kanban-task-title" style="font-weight: bold; margin-bottom: 8px;">${task.title}</div>
+            <div class="kanban-task-title" style="font-weight: bold; margin-bottom: 8px;">${task.id}-${task.title}</div>
             <div class="kanban-task-meta">
               <span class="kanban-task-priority priority-${task.priority}" style="padding: 2px 6px; border-radius: 10px; font-size: 0.7rem; background: #3498db; color: white;">${task.priority}</span>
             </div>
@@ -474,7 +474,7 @@ function renderDetails(container, data, type) {
   let html = '';
   
   // Add ID display for all item types
-  const idHtml = `<div class="detail-section"><strong>ID:</strong> ${data.id}</div>`;
+  const idHtml = `<div class="detail-section"><strong style="display: inline;">ID:</strong> ${data.id}</div>`;
   
   switch (type) {
     case 'tasks':
@@ -485,6 +485,7 @@ function renderDetails(container, data, type) {
             <strong>Description:</strong>
             <p>${data.description || 'No description available'}</p>
           </div>
+          ${data.depends_on && data.depends_on.length ? `<div class="detail-section"><strong style="display: inline;">Depends On:</strong> ${data.depends_on.join(', ')}</div>` : ''}
           <div class="detail-section">
             <strong>Created:</strong> ${formatDate(data.created_at)}
           </div>
@@ -493,7 +494,7 @@ function renderDetails(container, data, type) {
           </div>
           ${data.due_date ? `<div class="detail-section"><strong>Due Date:</strong> ${formatDate(data.due_date)}</div>` : ''}
           ${data.tags && data.tags.length ? `<div class="detail-section"><strong>Tags:</strong> ${data.tags.join(', ')}</div>` : ''}
-          ${data.linked_memories && data.linked_memories.length ? `<div class="detail-section"><strong>Linked Memories:</strong> ${data.linked_memories.length} items</div>` : ''}
+          ${data.linked_memories && data.linked_memories.length ? `<div class="detail-section"><strong>Linked Memories:</strong> ${data.linked_memories.join(', ')}</div>` : ''}
           ${data.progress_notes && data.progress_notes.length ? 
             `<div class="detail-section"><strong>Progress Notes:</strong><ul>
               ${data.progress_notes.map(noteString => {

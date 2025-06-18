@@ -113,7 +113,8 @@ const server = http.createServer(async (req, res) => {
               id: task.id,
               title: task.title,
               status: task.status,
-              priority: task.priority
+              priority: task.priority,
+              depends_on: task.depends_on || []
             }));
           } catch (error) {
             console.error('Failed to load tasks:', error);
