@@ -69,12 +69,12 @@ function renderOverview(data) {
   
   const statsHtml = `
     <div class="stat-card">
-      <div class="stat-value">${data.memoriesCount}</div>
-      <div class="stat-label">Memories</div>
-    </div>
-    <div class="stat-card">
       <div class="stat-value">${data.tasksCount}</div>
       <div class="stat-label">Tasks</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${data.memoriesCount}</div>
+      <div class="stat-label">Memories</div>
     </div>
     <div class="stat-card">
       <div class="stat-value">${data.contextsCount}</div>
@@ -760,8 +760,8 @@ async function initViewer() {
 
   // Render all sections
   renderOverview(overview);
-  renderTasks(tasks);
   renderMemories(memories);
+  renderTasks(tasks);
   renderContexts(contexts);
   
   // Initialize view toggle after data is loaded
