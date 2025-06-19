@@ -17,6 +17,8 @@ This is a complete implementation of a Model Context Protocol (MCP) server, prov
 - **Status Tracking**: todo, in progress, completed, cancelled
 - **Priority Management**: Three levels—low, medium, high
 - **Progress Notes**: Timestamped progress update records
+- **Task Dependencies**: Support for task dependency relationships with `depends_on` field
+- **Dependency Validation**: Prevents circular dependencies and validates executable tasks
 - **Semantic Linking**: Mechanism to associate tasks with memories
 
 ## Installation & Setup
@@ -65,34 +67,46 @@ The server includes a web-based monitoring dashboard that provides real-time ins
 1. Start the server in development mode: `node web-viewer/server.js --data-dir {mcp_data_dir}`
 2. Open your browser to `http://localhost:8080`
 
-The dashboard displays:
+The dashboard provides three distinct views:
 
-- **Server Status**: Current operational state and uptime
-- **Memory Metrics**: Usage statistics and trend analysis
-- **Task Progress**: Visualization of active/completed tasks
+### List View (Default)
+- **System Overview**: Real-time statistics and metrics
+- **Task Management**: Complete task listing with expandable details
+- **Memory Management**: Browse and search through stored memories
 - **Context Snapshots**: Recent context captures with timestamps
-- **System Alerts**: Notifications for critical events
+
+### Kanban Board View
+- **Visual Task Flow**: Drag-and-drop style task management
+- **Status Columns**: Todo, In Progress, and Completed sections
+- **Progress Tracking**: Real-time completion rate visualization
+- **Task Cards**: Compact view with priority indicators
+
+### Dependencies View
+- **Dependency Visualization**: Clear view of task relationships
+- **Status Badges**: Color-coded task IDs showing current status
+  - 🔴 Todo: Red badges for pending tasks
+  - 🟡 In Progress: Orange badges for active tasks
+  - 🟢 Completed: Green badges for finished tasks
+  - ⚪ Cancelled: Grey badges for cancelled tasks
+- **Blocking Relationships**: Shows which tasks are blocked by dependencies
+- **Interactive Details**: Expandable rows with complete task information
 
 ![Monitoring Dashboard](image/dashboard.png)  
 *Example monitoring interface*
 
-### Task Management Interface
-![Task Management Interface](image/tasks.png)   
-*Example task management interface*
+### Kanban Board
+![Kanban Board](image/Kanban_Board.png) 
 
-### Memory Management Interface
-![Memory Management Interface](image/memories.png)   
-*Example memory management interface*
-
-### Context Snapshots Interface
-![Context Snapshots Interface](image/context_snapshots.png)   
-*Example context snapshots interface*
+### Dependencies
+![Dependencies](image/Dependencies.png) 
 
 ### Key Features
-- Real-time updates via WebSocket connection
-- Historical performance trends
-- Filtering by task status/memory tags
-- Export functionality for reports
+- **Real-time Updates**: WebSocket-powered live data synchronization
+- **Multi-View Interface**: List, Kanban, and Dependencies views
+- **Visual Status Indicators**: Color-coded badges and progress bars
+- **Task Relationship Management**: Dependency tracking and validation
+- **Interactive UI**: Expandable details and hover effects
+- **Responsive Design**: Mobile-friendly interface
 
 > Note: The monitoring page requires the web-viewer component to be running. See the "Run Server" section for startup instructions.
 
@@ -175,7 +189,8 @@ The dashboard displays:
     "priority": "high",
     "tags": ["development", "prototype"],
     "due_date": "2024-12-31T23:59:59Z",
-    "linked_memories": ["memory-id-1", "memory-id-2"]
+    "linked_memories": ["memory-id-1", "memory-id-2"],
+    "depends_on": ["task-id-1", "task-id-2"]
   }
 }
 
@@ -263,6 +278,7 @@ The dashboard displays:
   "updated_at": "2024-01-01T00:00:00Z",
   "due_date": "2024-12-31T23:59:59Z",
   "linked_memories": ["memory-id-1", "memory-id-2"],
+  "depends_on": ["prerequisite-task-id-1", "prerequisite-task-id-2"],
   "progress_notes": [
     "2024-01-01T00:00:00Z: Progress note 1",
     "2024-01-02T00:00:00Z: Progress note 2"
@@ -295,6 +311,18 @@ The dashboard displays:
 2. **Pagination**: Add pagination support for large result sets
 3. **Compression**: Implement data compression for memory storage
 4. **Worker Threads**: Use worker threads for CPU-intensive operations
+
+### Task Management Interface
+![Task Management Interface](image/tasks.png)   
+*Example task management interface*
+
+### Memory Management Interface
+![Memory Management Interface](image/memories.png)   
+*Example memory management interface*
+
+### Context Snapshots Interface
+![Context Snapshots Interface](image/context_snapshots.png)   
+*Example context snapshots interface*
 
 ## Development Guidelines
 
