@@ -28,8 +28,10 @@ const contextContainer = document.getElementById('context-container');
 // View elements
 const listViewBtn = document.getElementById('list-view-btn');
 const kanbanViewBtn = document.getElementById('kanban-view-btn');
+const dependenciesViewBtn = document.getElementById('dependencies-view-btn');
 const dashboardContainer = document.querySelector('.dashboard-container');
 const kanbanContainer = document.getElementById('kanban-container');
+const dependenciesContainer = document.getElementById('dependencies-container');
 
 // Fetch data from web server
 async function fetchData(endpoint) {
@@ -39,6 +41,10 @@ async function fetchData(endpoint) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     const data = await response.json();
+    console.log(`fetchData(${endpoint}) received:`, data);
+    if (endpoint === '/api/tasks' && data.length > 0) {
+      console.log('First task received in fetchData:', JSON.stringify(data[0], null, 2));
+    }
     return data;
   } catch (error) {
     console.error(`Failed to fetch data from ${endpoint}:`, error);
@@ -204,6 +210,9 @@ function initializeViewToggle(tasks) {
   kanbanViewBtn.addEventListener('click', () => {
     switchToView('kanban', currentTasks);
   });
+  dependenciesViewBtn.addEventListener('click', () => {
+    switchToView('dependencies', currentTasks);
+  });
 }
 
 function switchToView(view, tasks = null) {
@@ -213,21 +222,24 @@ function switchToView(view, tasks = null) {
   // Update button states
   listViewBtn.classList.toggle('active', view === 'list');
   kanbanViewBtn.classList.toggle('active', view === 'kanban');
+  dependenciesViewBtn.classList.toggle('active', view === 'dependencies');
   
   // Show/hide containers
   if (view === 'list') {
     // List view: show full dashboard container
     dashboardContainer.style.display = 'flex';
     kanbanContainer.style.display = 'none';
+    dependenciesContainer.style.display = 'none';
     // Restore widgets row
     const widgetsRow = document.querySelector('.widgets-row');
     if (widgetsRow) {
       widgetsRow.style.display = 'flex';
     }
-  } else {
+  } else if (view === 'kanban') {
     // Kanban view: hide dashboard container completely, show only kanban
     dashboardContainer.style.display = 'none';
     kanbanContainer.style.display = 'flex';
+    dependenciesContainer.style.display = 'none';
     
     // Render kanban with provided tasks data or fetch new data
     if (tasks) {
@@ -235,6 +247,18 @@ function switchToView(view, tasks = null) {
       renderKanbanProgress(tasks);
     } else {
       refreshKanbanBoard();
+    }
+  } else if (view === 'dependencies') {
+    // Dependencies view: hide other containers, show only dependencies
+    dashboardContainer.style.display = 'none';
+    kanbanContainer.style.display = 'none';
+    dependenciesContainer.style.display = 'flex';
+    
+    // Render dependencies with provided tasks data or fetch new data
+    if (tasks) {
+      renderDependenciesTable(tasks);
+    } else {
+      refreshDependenciesTable();
     }
   }
 }
@@ -276,6 +300,11 @@ function renderTasks(tasks) {
   if (currentView === 'kanban') {
     renderKanbanBoard(tasks);
     renderKanbanProgress(tasks);
+  }
+  
+  // Update dependencies view if currently active
+  if (currentView === 'dependencies') {
+    renderDependenciesTable(tasks);
   }
 }
 
@@ -352,6 +381,147 @@ async function refreshKanbanBoard() {
     console.error('Error refreshing kanban board:', error);
     renderKanbanBoard([]); // Render empty kanban on error
     renderKanbanProgress([]); // Render empty progress on error
+  }
+}
+
+// Render Dependencies Table
+function renderDependenciesTable(tasks) {
+  console.log('renderDependenciesTable called with tasks:', tasks);
+  
+  const container = document.getElementById('dependencies-table-container');
+  if (!container) {
+    console.error('Dependencies table container not found');
+    return;
+  }
+  
+  if (!tasks || tasks.length === 0) {
+    container.innerHTML = '<p>No tasks found</p>';
+    return;
+  }
+
+  // Sort tasks by ID in ascending order
+  const sortedTasks = [...tasks].sort((a, b) => {
+    // Convert ID to number for proper numeric sorting
+    const idA = parseInt(a.id) || 0;
+    const idB = parseInt(b.id) || 0;
+    return idA - idB;
+  });
+
+  // Build dependency mapping for "blocking" column
+  const blockingMap = {};
+  sortedTasks.forEach(task => {
+    if (task.depends_on && task.depends_on.length > 0) {
+      task.depends_on.forEach(depId => {
+        if (!blockingMap[depId]) {
+          blockingMap[depId] = [];
+        }
+        blockingMap[depId].push(task.id);
+      });
+    }
+  });
+
+  // 建立任務ID到狀態的映射
+  const taskStatusMap = {};
+  sortedTasks.forEach(task => {
+    taskStatusMap[task.id] = task.status;
+  });
+
+  // 創建狀態徽章HTML的輔助函數
+  function createTaskBadge(taskId, status) {
+    const statusClass = `task-badge task-badge-${status}`;
+    return `<span class="${statusClass}" data-task-id="${taskId}">${taskId}</span>`;
+  }
+
+
+  let html = `
+    <div class="dependencies-table-wrapper">
+      <table class="dependencies-table">
+        <thead>
+          <tr>
+            <th>Task ID</th>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th>Depends On</th>
+            <th>Blocking</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  sortedTasks.forEach(task => {
+    console.log(`Processing task ${task.id}:`, task);
+    console.log(`Task ${task.id} depends_on:`, task.depends_on, typeof task.depends_on);
+    
+    // Handle depends_on - 生成帶狀態顏色的徽章
+    let dependsOnList = '-';
+    if (task.depends_on) {
+      let taskIds = [];
+      if (Array.isArray(task.depends_on) && task.depends_on.length > 0) {
+        taskIds = task.depends_on;
+      } else if (typeof task.depends_on === 'string' && task.depends_on.trim()) {
+        taskIds = [task.depends_on];
+      } else if (typeof task.depends_on === 'number') {
+        taskIds = [task.depends_on.toString()];
+      }
+      
+      if (taskIds.length > 0) {
+        const badges = taskIds.map(depId => {
+          const status = taskStatusMap[depId] || 'todo';
+          return createTaskBadge(depId, status);
+        });
+        dependsOnList = badges.join(' ');
+      }
+    }
+    
+    // Handle blocking - 生成帶狀態顏色的徽章
+    let blockingList = '-';
+    if (blockingMap[task.id] && Array.isArray(blockingMap[task.id]) && blockingMap[task.id].length > 0) {
+      const badges = blockingMap[task.id].map(blockedId => {
+        const status = taskStatusMap[blockedId] || 'todo';
+        return createTaskBadge(blockedId, status);
+      });
+      blockingList = badges.join(' ');
+    }
+
+    html += `
+      <tr class="dependency-row clickable" data-id="${task.id}" data-type="tasks">
+        <td class="task-id">${task.id}</td>
+        <td class="task-title">${task.title}</td>
+        <td class="task-status status-${task.status}">${task.status}</td>
+        <td class="task-priority priority-${task.priority}">${task.priority}</td>
+        <td class="depends-on">${dependsOnList}</td>
+        <td class="blocking">${blockingList}</td>
+      </tr>
+      <tr class="dependency-details" id="details-deps-tasks-${task.id}" style="display: none;">
+        <td colspan="6">
+          <div class="details-container content-area"></div>
+        </td>
+      </tr>
+    `;
+  });
+
+  html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  container.innerHTML = html;
+  addClickListeners();
+}
+
+async function refreshDependenciesTable() {
+  try {
+    const tasks = await fetchData(ENDPOINTS.TASKS);
+    if (tasks) {
+      renderDependenciesTable(tasks);
+    } else {
+      renderDependenciesTable([]);
+    }
+  } catch (error) {
+    console.error('Error refreshing dependencies table:', error);
+    renderDependenciesTable([]);
   }
 }
 
@@ -438,11 +608,23 @@ async function handleItemClick(event) {
   let detailsContainerId;
   if (element.classList.contains('kanban-task')) {
     detailsContainerId = `details-kanban-${type}-${id}`;
+  } else if (element.classList.contains('dependency-row')) {
+    detailsContainerId = `details-deps-${type}-${id}`;
   } else {
     detailsContainerId = `details-${type}-${id}`;
   }
   
-  const detailsContainer = document.getElementById(detailsContainerId);
+  let detailsContainer = document.getElementById(detailsContainerId);
+  
+  // For dependency rows, the details container is in the next row
+  if (element.classList.contains('dependency-row')) {
+    const detailsRow = document.getElementById(detailsContainerId);
+    if (detailsRow) {
+      detailsContainer = detailsRow.querySelector('.content-area');
+    }
+  } else {
+    detailsContainer = document.getElementById(detailsContainerId);
+  }
   
   if (!detailsContainer) {
     console.error(`Details container not found: ${detailsContainerId}`);
@@ -451,20 +633,41 @@ async function handleItemClick(event) {
   
   // Only toggle if not clicking on content area or elements with data-ignore-toggle
   if (!event.target.closest('.content-area') && !event.target.closest('[data-ignore-toggle]')) {
-    if (detailsContainer.style.display === 'none' || !detailsContainer.style.display) {
-      // Show details
-      const detailData = await fetchData(`/api/${type}/${id}`);
-      if (detailData) {
-        renderDetails(detailsContainer, detailData, type);
-        detailsContainer.style.display = 'block';
-        element.classList.add('expanded');
+    if (element.classList.contains('dependency-row')) {
+      // Handle dependency row expansion
+      const detailsRow = document.getElementById(detailsContainerId);
+      if (detailsRow.style.display === 'none' || !detailsRow.style.display) {
+        // Show details
+        const detailData = await fetchData(`/api/${type}/${id}`);
+        if (detailData) {
+          renderDetails(detailsContainer, detailData, type);
+          detailsRow.style.display = 'table-row';
+          element.classList.add('expanded');
+        } else {
+          console.error('Failed to fetch detail data for:', type, id);
+        }
       } else {
-        console.error('Failed to fetch detail data for:', type, id);
+        // Hide details
+        detailsRow.style.display = 'none';
+        element.classList.remove('expanded');
       }
     } else {
-      // Hide details
-      detailsContainer.style.display = 'none';
-      element.classList.remove('expanded');
+      // Handle regular item expansion
+      if (detailsContainer.style.display === 'none' || !detailsContainer.style.display) {
+        // Show details
+        const detailData = await fetchData(`/api/${type}/${id}`);
+        if (detailData) {
+          renderDetails(detailsContainer, detailData, type);
+          detailsContainer.style.display = 'block';
+          element.classList.add('expanded');
+        } else {
+          console.error('Failed to fetch detail data for:', type, id);
+        }
+      } else {
+        // Hide details
+        detailsContainer.style.display = 'none';
+        element.classList.remove('expanded');
+      }
     }
   }
 }
@@ -646,6 +849,10 @@ async function refreshTasks() {
     if (currentView === 'kanban') {
       renderKanbanBoard(tasks);
       renderKanbanProgress(tasks);
+    }
+    // Also update dependencies if in dependencies view
+    if (currentView === 'dependencies') {
+      renderDependenciesTable(tasks);
     }
   }
   // Also update overview stats

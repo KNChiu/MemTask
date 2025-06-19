@@ -54,6 +54,11 @@ header {
     border-left: 1px solid #3498db;
 }
 
+.view-btn:not(:first-child):not(:last-child) {
+    border-left: 1px solid #3498db;
+    border-right: 1px solid #3498db;
+}
+
 .view-btn:hover {
     background: #e8f4fd;
 }
@@ -610,4 +615,239 @@ section:not(.widget) {
 
 .kanban-task.expanded::after {
     transform: rotate(180deg);
+}
+
+/* Dependencies Table Styles */
+.dependencies-table-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.dependencies-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    font-size: 0.9rem;
+}
+
+.dependencies-table th {
+    background: #f8f9fa;
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #e9ecef;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.dependencies-table td {
+    padding: 10px 15px;
+    border-bottom: 1px solid #e9ecef;
+    vertical-align: middle;
+}
+
+.dependency-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.dependency-row:hover {
+    background-color: #f8f9fa;
+}
+
+.dependency-row.expanded {
+    background-color: #e8f4fd;
+}
+
+.dependencies-table .task-id {
+    font-weight: bold;
+    color: #2c3e50;
+    width: 80px;
+}
+
+.dependencies-table .task-title {
+    font-weight: 500;
+    color: #2c3e50;
+    min-width: 200px;
+}
+
+.dependencies-table .task-status {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+
+.status-todo {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.status-in_progress {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fed7aa;
+}
+
+.status-completed {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.status-cancelled {
+    background: #f9fafb;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.dependencies-table .task-priority {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+    background: white;
+    border: none;
+    text-align: center;
+}
+
+.dependencies-table .priority-high {
+    color: #dc2626;
+}
+
+.dependencies-table .priority-medium {
+    color: #d97706;
+}
+
+.dependencies-table .priority-low {
+    color: #16a34a;
+}
+
+
+.dependencies-table .depends-on,
+.dependencies-table .blocking {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #6b7280;
+    max-width: 150px;
+    word-break: break-all;
+}
+
+/* Task Badge Styles for Dependencies */
+.task-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+    margin: 1px 2px;
+    transition: all 0.2s ease;
+    cursor: default;
+}
+
+.task-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Task Badge Status Colors */
+.task-badge-todo {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.task-badge-in_progress {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fed7aa;
+}
+
+.task-badge-completed {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.task-badge-cancelled {
+    background: #f9fafb;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.dependency-details {
+    background: #f8f9fa;
+    border-left: 4px solid #3498db;
+}
+
+.dependency-details .details-container {
+    padding: 15px;
+    margin: 0;
+}
+
+.dependency-details .details {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 15px;
+}
+
+/* Responsive Design for Dependencies Table */
+@media (max-width: 768px) {
+    .dependencies-table {
+        font-size: 0.8rem;
+    }
+    
+    .dependencies-table th,
+    .dependencies-table td {
+        padding: 8px 10px;
+    }
+    
+    .dependencies-table .task-title {
+        min-width: 150px;
+    }
+    
+    .dependencies-table .depends-on,
+    .dependencies-table .blocking {
+        max-width: 100px;
+        font-size: 0.75rem;
+    }
+    
+    .task-badge {
+        font-size: 0.65rem;
+        padding: 1px 4px;
+        margin: 0.5px 1px;
+    }
+}
+
+@media (max-width: 480px) {
+    .dependencies-table-wrapper {
+        font-size: 0.75rem;
+    }
+    
+    .dependencies-table th,
+    .dependencies-table td {
+        padding: 6px 8px;
+    }
+    
+    .dependencies-table .task-title {
+        min-width: 120px;
+    }
+    
+    .task-badge {
+        font-size: 0.6rem;
+        padding: 1px 3px;
+    }
 }

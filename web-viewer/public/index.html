@@ -12,6 +12,7 @@
         <div class="view-toggle">
             <button id="list-view-btn" class="view-btn active">List View</button>
             <button id="kanban-view-btn" class="view-btn">Kanban Board</button>
+            <button id="dependencies-view-btn" class="view-btn">Dependencies</button>
         </div>
     </header>
     <main class="dashboard-container">
@@ -67,6 +68,17 @@
             <section class="widget" id="kanban-completed-section">
                 <h2 class="kanban-column-title completed-section">Completed</h2>
                 <div id="kanban-completed" class="kanban-column-content"></div>
+            </section>
+        </div>
+    </main>
+    
+    <!-- Dependencies View Container (initially hidden) -->
+    <main id="dependencies-container" class="dashboard-container" style="display: none;">
+        <!-- Row 1: Dependencies Overview -->
+        <div class="dashboard-row overview-row">
+            <section class="widget" id="dependencies-dashboard">
+                <h2>Task Dependencies</h2>
+                <div id="dependencies-table-container"></div>
             </section>
         </div>
     </main>
