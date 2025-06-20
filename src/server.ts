@@ -1,8 +1,8 @@
 /**
  * Server Class
  * 
- * Simplified implementation using the new Manager classes
- * instead of separate Service and Storage classes.
+ * Updated to use unified CacheService instead of individual cache implementations.
+ * Creates CacheService instances for each Manager to eliminate code duplication.
  */
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
@@ -17,6 +17,7 @@ import { Logger } from './logger';
 import { MemoryManager } from './memory';
 import { TaskManager } from './task';
 import { ContextManager } from './context';
+import { CacheServiceFactory } from './cache';
 import { Memory, Task, ContextSnapshot } from './types';
 
 /**
@@ -55,22 +56,30 @@ export class MemoryContextServer {
       }
     );
     
-    // Create managers
+    // Create cache service factory
+    const cacheFactory = new CacheServiceFactory(logger);
+    
+    // Create cache services for each manager
+    const memoryCacheService = cacheFactory.create<string, Memory>(this.config.cache.memory);
+    const taskCacheService = cacheFactory.create<string, Task>(this.config.cache.task);
+    const contextCacheService = cacheFactory.create<string, ContextSnapshot>(this.config.cache.context);
+    
+    // Create managers with injected cache services
     this.memoryManager = new MemoryManager(
       this.config.memoriesPath,
-      this.config.cache.memory.maxSize,
+      memoryCacheService,
       logger as unknown as Console
     );
     
     this.taskManager = new TaskManager(
       this.config.tasksPath,
-      this.config.cache.task.maxSize,
+      taskCacheService,
       logger as unknown as Console
     );
     
     this.contextManager = new ContextManager(
       this.config.contextsPath,
-      this.config.cache.context.maxSize,
+      contextCacheService,
       logger as unknown as Console
     );
   }

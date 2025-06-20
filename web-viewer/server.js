@@ -6,6 +6,7 @@ const { getConfig } = require('../dist/src/config');
 const { MemoryManager } = require('../dist/src/memory');
 const { TaskManager } = require('../dist/src/task');
 const { ContextManager } = require('../dist/src/context');
+const { CacheServiceFactory } = require('../dist/src/cache');
 
 // Configuration
 const PORT = 8080;
@@ -14,19 +15,29 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 // Initialize MCP data managers
 const config = getConfig();
 const logger = console;
+
+// Create cache service factory
+const cacheFactory = new CacheServiceFactory(logger);
+
+// Create cache services for each manager
+const memoryCacheService = cacheFactory.create(config.cache.memory);
+const taskCacheService = cacheFactory.create(config.cache.task);
+const contextCacheService = cacheFactory.create(config.cache.context);
+
+// Initialize managers with cache services
 const memoryManager = new MemoryManager(
-  config.memoriesPath, 
-  config.cache.memory.maxSize, 
+  config.memoriesPath,
+  memoryCacheService,
   logger
 );
 const taskManager = new TaskManager(
-  config.tasksPath, 
-  config.cache.task.maxSize, 
+  config.tasksPath,
+  taskCacheService,
   logger
 );
 const contextManager = new ContextManager(
-  config.contextsPath, 
-  config.cache.context.maxSize, 
+  config.contextsPath,
+  contextCacheService,
   logger
 );
 

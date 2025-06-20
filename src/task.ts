@@ -1,68 +1,15 @@
 /**
  * Task Management Module
  * 
- * Combines the functionality of TaskService and TaskStorage,
- * simplifies the architecture, reduces over-engineering while maintaining
- * the core benefits of SOLID principles.
+ * Refactored to use unified CacheService instead of duplicate SimpleCache implementation.
+ * Maintains the existing API while eliminating code duplication.
  */
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { existsSync } from 'fs';
 import * as crypto from 'crypto';
 import { Task, CreateTaskArgs, UpdateTaskArgs, GetTaskStatusArgs, ListTasksArgs, DeleteTaskArgs, SearchTaskArgs } from './types';
-
-/**
- * Simplified cache implementation
- */
-class SimpleCache<K, V> {
-  private cache = new Map<K, V>();
-  private maxSize: number;
-  private stats = { hits: 0, misses: 0 };
-
-  constructor(maxSize: number = 100) {
-    this.maxSize = maxSize;
-  }
-
-  get(key: K): V | undefined {
-    const value = this.cache.get(key);
-    if (value) {
-      this.stats.hits++;
-      // Update position (LRU strategy)
-      this.cache.delete(key);
-      this.cache.set(key, value);
-      return value;
-    }
-    this.stats.misses++;
-    return undefined;
-  }
-
-  set(key: K, value: V): void {
-    // If cache is full, delete the oldest item
-    if (this.cache.size >= this.maxSize) {
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey !== undefined) {
-        this.cache.delete(oldestKey);
-      }
-    }
-    this.cache.set(key, value);
-  }
-
-  delete(key: K): boolean {
-    return this.cache.delete(key);
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-
-  getStats() {
-    return { ...this.stats };
-  }
-
-  size(): number {
-    return this.cache.size;
-  }
-}
+import { CacheService } from './cache';
 
 /**
  * Task Manager Class
@@ -72,17 +19,22 @@ class SimpleCache<K, V> {
  */
 export class TaskManager {
   private storagePath: string;
-  private cache: SimpleCache<string, Task>;
+  private cache: CacheService<string, Task>;
   private console: Console;
 
   /**
    * Constructor
    * @param storagePath Storage path
-   * @param maxCacheSize Maximum cache size
+   * @param cacheService Unified cache service instance
+   * @param console Console for logging (optional)
    */
-  constructor(storagePath: string, maxCacheSize: number = 100, console: Console = global.console) {
+  constructor(
+    storagePath: string, 
+    cacheService: CacheService<string, Task>,
+    console: Console = global.console
+  ) {
     this.storagePath = storagePath;
-    this.cache = new SimpleCache<string, Task>(maxCacheSize);
+    this.cache = cacheService;
     this.console = console;
   }
 
