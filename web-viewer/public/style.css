@@ -851,3 +851,75 @@ section:not(.widget) {
         padding: 1px 3px;
     }
 }
+
+/* Task Action Buttons Styles */
+.task-actions {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.status-btn {
+    padding: 4px 8px;
+    border: 1px solid;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    margin: 0 2px;
+}
+
+.status-btn:hover {
+    opacity: 0.8;
+    transform: translateY(-1px);
+}
+
+.todo-btn {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #fecaca;
+}
+
+.todo-btn:hover {
+    background: #fee2e2;
+    color: #7f1d1d;
+}
+
+.progress-btn {
+    background: #fffbeb;
+    color: #92400e;
+    border-color: #fed7aa;
+}
+
+.progress-btn:hover {
+    background: #fef3c7;
+    color: #78350f;
+}
+
+.completed-btn {
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.completed-btn:hover {
+    background: #dcfce7;
+    color: #14532d;
+}
+
+.cancelled-btn {
+    background: #f9fafb;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+.cancelled-btn:hover {
+    background: #f3f4f6;
+    color: #1f2937;
+}
+
+/* Prevent button clicks from triggering row expansion */
+.task-actions .status-btn {
+    position: relative;
+    z-index: 10;
+}

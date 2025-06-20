@@ -444,6 +444,7 @@ function renderDependenciesTable(tasks) {
             <th>Priority</th>
             <th>Depends On</th>
             <th>Blocking</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -484,6 +485,18 @@ function renderDependenciesTable(tasks) {
       blockingList = badges.join(' ');
     }
 
+    // Create action buttons based on current status - now with circular rotation
+    let actionButtons = '';
+    if (task.status === 'todo') {
+      actionButtons = `<button class="status-btn todo-btn" onclick="updateTaskStatus('${task.id}', 'in_progress')" title="Start Task">▶️ Start</button>`;
+    } else if (task.status === 'in_progress') {
+      actionButtons = `<button class="status-btn progress-btn" onclick="updateTaskStatus('${task.id}', 'completed')" title="Complete Task">✅ Complete</button>`;
+    } else if (task.status === 'completed') {
+      actionButtons = `<button class="status-btn completed-btn" onclick="updateTaskStatus('${task.id}', 'todo')" title="Reset to Todo">🔄 Reset</button>`;
+    } else if (task.status === 'cancelled') {
+      actionButtons = `<button class="status-btn cancelled-btn" onclick="updateTaskStatus('${task.id}', 'todo')" title="Reactivate Task">🔄 Reactivate</button>`;
+    }
+
     html += `
       <tr class="dependency-row clickable" data-id="${task.id}" data-type="tasks">
         <td class="task-id">${task.id}</td>
@@ -492,9 +505,10 @@ function renderDependenciesTable(tasks) {
         <td class="task-priority priority-${task.priority}">${task.priority}</td>
         <td class="depends-on">${dependsOnList}</td>
         <td class="blocking">${blockingList}</td>
+        <td class="task-actions">${actionButtons}</td>
       </tr>
       <tr class="dependency-details" id="details-deps-tasks-${task.id}" style="display: none;">
-        <td colspan="6">
+        <td colspan="7">
           <div class="details-container content-area"></div>
         </td>
       </tr>
@@ -631,8 +645,11 @@ async function handleItemClick(event) {
     return;
   }
   
-  // Only toggle if not clicking on content area or elements with data-ignore-toggle
-  if (!event.target.closest('.content-area') && !event.target.closest('[data-ignore-toggle]')) {
+  // Only toggle if not clicking on content area, buttons, or elements with data-ignore-toggle
+  if (!event.target.closest('.content-area') && 
+      !event.target.closest('[data-ignore-toggle]') && 
+      !event.target.closest('.status-btn') &&
+      !event.target.classList.contains('status-btn')) {
     if (element.classList.contains('dependency-row')) {
       // Handle dependency row expansion
       const detailsRow = document.getElementById(detailsContainerId);
@@ -983,6 +1000,38 @@ async function initViewer() {
 document.addEventListener('DOMContentLoaded', initViewer);
 
 // Clean up WebSocket on page unload
+// Task status update function
+async function updateTaskStatus(taskId, newStatus) {
+  if (!confirm(`Are you sure you want to change task ${taskId} status to "${newStatus}"?`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/tasks/${taskId}/status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        status: newStatus,
+        progress_note: `Status updated to ${newStatus} via Dependencies view`
+      })
+    });
+
+    if (response.ok) {
+      console.log(`Task ${taskId} status updated to ${newStatus}`);
+      // Force refresh all views to reflect the change
+      await refreshAllData();
+    } else {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      alert(`Failed to update task status: ${errorData.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error('Error updating task status:', error);
+    alert('Failed to update task status. Please try again.');
+  }
+}
+
 window.addEventListener('beforeunload', () => {
   if (ws) {
     ws.close();

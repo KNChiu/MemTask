@@ -89,6 +89,67 @@ const server = http.createServer(async (req, res) => {
     }
   }
   
+  // Handle POST API requests for task status updates
+  if (req.method === 'POST' && url.pathname.startsWith('/api/tasks/') && url.pathname.endsWith('/status')) {
+    try {
+      // Extract task ID from URL
+      const pathMatch = url.pathname.match(/^\/api\/tasks\/([^\/]+)\/status$/);
+      if (!pathMatch) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid task status update URL' }));
+        return;
+      }
+      
+      const taskId = pathMatch[1];
+      
+      // Parse request body
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+      
+      req.on('end', async () => {
+        try {
+          const { status, progress_note } = JSON.parse(body);
+          
+          if (!status || !['todo', 'in_progress', 'completed', 'cancelled'].includes(status)) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Invalid status value' }));
+            return;
+          }
+          
+          // Update task using TaskManager
+          const updateResult = await taskManager.updateTask({
+            id: taskId,
+            status: status,
+            progress_note: progress_note || `Status updated to ${status}`
+          });
+          
+          if (updateResult) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              success: true, 
+              message: `Task ${taskId} status updated to ${status}`,
+              task: updateResult
+            }));
+          } else {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Task ${taskId} not found` }));
+          }
+        } catch (parseError) {
+          console.error('Error parsing request body:', parseError);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON in request body' }));
+        }
+      });
+    } catch (error) {
+      console.error('Error handling task status update:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+  
   // Handle API requests - Mock data for demo
   if (req.method === 'GET' && url.pathname.startsWith('/api/')) {
     try {
