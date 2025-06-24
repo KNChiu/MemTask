@@ -41,10 +41,6 @@ async function fetchData(endpoint) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     const data = await response.json();
-    console.log(`fetchData(${endpoint}) received:`, data);
-    if (endpoint === '/api/tasks' && data.length > 0) {
-      console.log('First task received in fetchData:', JSON.stringify(data[0], null, 2));
-    }
     return data;
   } catch (error) {
     console.error(`Failed to fetch data from ${endpoint}:`, error);
@@ -386,7 +382,6 @@ async function refreshKanbanBoard() {
 
 // Render Dependencies Table
 function renderDependenciesTable(tasks) {
-  console.log('renderDependenciesTable called with tasks:', tasks);
   
   const container = document.getElementById('dependencies-table-container');
   if (!container) {
@@ -451,8 +446,6 @@ function renderDependenciesTable(tasks) {
   `;
 
   sortedTasks.forEach(task => {
-    console.log(`Processing task ${task.id}:`, task);
-    console.log(`Task ${task.id} depends_on:`, task.depends_on, typeof task.depends_on);
     
     // Handle depends_on - 生成帶狀態顏色的徽章
     let dependsOnList = '-';
@@ -587,22 +580,6 @@ function renderContexts(contexts) {
   addClickListeners();
 }
 
-// Initialize the viewer
-async function initViewer() {
-  // Load all data in parallel
-  const [overview, tasks, memories, contexts] = await Promise.all([
-    fetchData(ENDPOINTS.OVERVIEW),
-    fetchData(ENDPOINTS.TASKS),
-    fetchData(ENDPOINTS.MEMORIES),
-    fetchData(ENDPOINTS.CONTEXTS)
-  ]);
-
-  // Render all sections
-  renderOverview(overview);
-  renderTasks(tasks);
-  renderMemories(memories);
-  renderContexts(contexts);
-}
 
 // Add click listeners to all clickable elements
 function addClickListeners() {
@@ -1019,7 +996,6 @@ async function updateTaskStatus(taskId, newStatus) {
     });
 
     if (response.ok) {
-      console.log(`Task ${taskId} status updated to ${newStatus}`);
       // Force refresh all views to reflect the change
       await refreshAllData();
     } else {

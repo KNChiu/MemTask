@@ -181,9 +181,7 @@ const server = http.createServer(async (req, res) => {
         case 'tasks':
           try {
             const tasks = await taskManager.listTasks();
-            console.log('API /tasks - First task from TaskManager:', JSON.stringify(tasks[0], null, 2));
             data = tasks;
-            console.log('API /tasks - First task being sent to client:', JSON.stringify(data[0], null, 2));
           } catch (error) {
             console.error('Failed to load tasks:', error);
             data = { error: 'Failed to load tasks' };
@@ -282,10 +280,6 @@ const server = http.createServer(async (req, res) => {
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       const jsonString = JSON.stringify(data, null, 2);
-      console.log('Final JSON response length:', jsonString.length);
-      if (endpoint === 'tasks' && data.length > 0) {
-        console.log('First task in final JSON:', JSON.stringify(data[0], null, 2));
-      }
       res.end(jsonString);
     } catch (error) {
       console.error('API Error:', error);
