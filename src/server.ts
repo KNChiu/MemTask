@@ -18,7 +18,22 @@ import { MemoryManager } from './memory';
 import { TaskManager } from './task';
 import { ContextManager } from './context';
 import { CacheServiceFactory } from './cache';
-import { Memory, Task, ContextSnapshot } from './types';
+import { 
+  Memory, 
+  Task, 
+  ContextSnapshot,
+  AddMemoryArgs,
+  SearchMemoryArgs,
+  ListMemoriesArgs,
+  DeleteMemoryArgs,
+  CreateTaskArgs,
+  UpdateTaskArgs,
+  GetTaskStatusArgs,
+  ListTasksArgs,
+  DeleteTaskArgs,
+  SearchTaskArgs,
+  CreateContextSnapshotArgs
+} from './types';
 
 /**
  * Memory Context Server Class
@@ -476,7 +491,7 @@ export class MemoryContextServer {
       try {
         switch (name) {
           case 'create_memory': {
-            const memory = await this.memoryManager.addMemory(args as any);
+            const memory = await this.memoryManager.addMemory(args as AddMemoryArgs);
             return {
               content: [
                 {
@@ -488,14 +503,15 @@ export class MemoryContextServer {
           }
           
           case 'read_memory': {
-            const memory = await this.memoryManager.getMemory((args as any).id);
+            const { id } = args as { id: string };
+            const memory = await this.memoryManager.getMemory(id);
             
             if (!memory) {
               return {
                 content: [
                   {
                     type: 'text',
-                    text: `Memory ${(args as any).id} does not exist.`
+                    text: `Memory ${id} does not exist.`
                   }
                 ]
               };
@@ -512,7 +528,7 @@ export class MemoryContextServer {
           }
           
           case 'search_memories': {
-            const results = await this.memoryManager.searchMemory(args as any);
+            const results = await this.memoryManager.searchMemory(args as SearchMemoryArgs);
             
             const truncateContent = (content: string, maxLength: number = 100) => {
               return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
@@ -531,7 +547,7 @@ export class MemoryContextServer {
           }
           
           case 'list_memories': {
-            const memories = await this.memoryManager.listMemories(args as any);
+            const memories = await this.memoryManager.listMemories(args as ListMemoriesArgs);
 
             const truncateContent = (content: string, maxLength: number = 100) => {
               return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
@@ -550,20 +566,21 @@ export class MemoryContextServer {
           }
           
           case 'delete_memory': {
-            const result = await this.memoryManager.deleteMemory(args as any);
+            const deleteArgs = args as DeleteMemoryArgs;
+            const result = await this.memoryManager.deleteMemory(deleteArgs);
             
             return {
               content: [
                 {
                   type: 'text',
-                  text: result ? `Memory ${(args as any).id} deleted successfully.` : `Memory ${(args as any).id} does not exist.`
+                  text: result ? `Memory ${deleteArgs.id} deleted successfully.` : `Memory ${deleteArgs.id} does not exist.`
                 }
               ]
             };
           }
 
           case 'create_task': {
-            const task = await this.taskManager.createTask(args as any);
+            const task = await this.taskManager.createTask(args as CreateTaskArgs);
             const executableTasks = await this.taskManager.getExecutableTasks();
             const isExecutable = executableTasks.some(t => t.id === task.id);
             const dependsText = task.depends_on && task.depends_on.length > 0 ? 
@@ -588,14 +605,15 @@ export class MemoryContextServer {
           }
           
           case 'read_task': {
-            const task = await this.taskManager.getTaskStatus(args as any);
+            const { id } = args as { id: string };
+            const task = await this.taskManager.getTaskStatus({ id } as GetTaskStatusArgs);
             
             if (!task) {
               return {
                 content: [
                   {
                     type: 'text',
-                    text: `Task ${(args as any).id} does not exist.`
+                    text: `Task ${id} does not exist.`
                   }
                 ]
               };
@@ -620,14 +638,15 @@ export class MemoryContextServer {
           }
           
           case 'update_task': {
-            const task = await this.taskManager.updateTask(args as any);
+            const updateArgs = args as UpdateTaskArgs;
+            const task = await this.taskManager.updateTask(updateArgs);
             
             if (!task) {
               return {
                 content: [
                   {
                     type: 'text',
-                    text: `Task ${(args as any).id} does not exist.`
+                    text: `Task ${updateArgs.id} does not exist.`
                   }
                 ]
               };
@@ -663,20 +682,21 @@ export class MemoryContextServer {
           }
           
           case 'delete_task': {
-            const result = await this.taskManager.deleteTask(args as any);
+            const deleteArgs = args as DeleteTaskArgs;
+            const result = await this.taskManager.deleteTask(deleteArgs);
             
             return {
               content: [
                 {
                   type: 'text',
-                  text: result ? `Task ${(args as any).id} deleted successfully.` : `Task ${(args as any).id} does not exist.`
+                  text: result ? `Task ${deleteArgs.id} deleted successfully.` : `Task ${deleteArgs.id} does not exist.`
                 }
               ]
             };
           }
           
           case 'list_tasks': {
-            const tasks = await this.taskManager.listTasks(args as any);
+            const tasks = await this.taskManager.listTasks(args as ListTasksArgs);
             const executableTasks = await this.taskManager.getExecutableTasks();
 
             const truncateDescription = (description: string, maxLength: number = 100) => {
@@ -714,7 +734,7 @@ export class MemoryContextServer {
           }
           
           case 'search_tasks': {
-            const tasks = await this.taskManager.searchTask(args as any);
+            const tasks = await this.taskManager.searchTask(args as SearchTaskArgs);
             
             const truncateDescription = (description: string, maxLength: number = 100) => {
               return description.length > maxLength ? description.substring(0, maxLength) + '...' : description;
@@ -733,7 +753,7 @@ export class MemoryContextServer {
           }
 
           case 'create_context_snapshot': {
-            const context = await this.contextManager.createContextSnapshot(args as any);
+            const context = await this.contextManager.createContextSnapshot(args as CreateContextSnapshotArgs);
             
             return {
               content: [
