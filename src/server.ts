@@ -18,7 +18,22 @@ import { MemoryManager } from './memory';
 import { TaskManager } from './task';
 import { ContextManager } from './context';
 import { CacheServiceFactory } from './cache';
-import { Memory, Task, ContextSnapshot } from './types';
+import { 
+  Memory, 
+  Task, 
+  ContextSnapshot,
+  AddMemoryArgs,
+  SearchMemoryArgs,
+  ListMemoriesArgs,
+  DeleteMemoryArgs,
+  CreateTaskArgs,
+  UpdateTaskArgs,
+  GetTaskStatusArgs,
+  ListTasksArgs,
+  DeleteTaskArgs,
+  SearchTaskArgs,
+  CreateContextSnapshotArgs
+} from './types';
 
 /**
  * Memory Context Server Class
@@ -46,7 +61,7 @@ export class MemoryContextServer {
     this.server = new Server(
       {
         name: 'memory-context-server',
-        version: '1.0.0',
+        version: '2.0.0',
       },
       {
         capabilities: {
@@ -286,102 +301,142 @@ export class MemoryContextServer {
             const tools = [
           // Memory management tools
           {
-            name: 'memory_tool',
-            description: 'Unified memory management tool with operation: "create", "read", "search", "list", "delete"\n\nExample usage:\n' +
-              JSON.stringify({
-                "tool": "memory_tool",
-                "arguments": {
-                  "operation": "create",
-                  "content": "Meeting notes: Discussed new product feature planning",
-                  "summary": "Product feature meeting notes",
-                  "tags": ["meeting", "product"],
-                  "context_id": "optional-context-id"
-                }
-              }, null, 2) + '\n\n' +
-              JSON.stringify({
-                "tool": "memory_tool",
-                "arguments": {
-                  "operation": "search",
-                  "query": "product feature",
-                  "limit": 5
-                }
-              }, null, 2),
+            name: 'create_memory',
+            description: 'Create new memory entry',
             inputSchema: {
               type: 'object',
               properties: {
-                operation: { 
-                  type: 'string', 
-                  enum: ['create', 'read', 'search', 'list', 'delete'],
-                  description: 'Operation type: "create", "read", "search", "list", "delete"'
-                },
-                content: { type: 'string', description: 'Memory content (for create operation)' },
-                summary: { type: 'string', description: 'Memory summary (for create operation)' },
-                tags: { type: 'array', items: { type: 'string' }, description: 'Tags (for create/list operations)' },
-                context_id: { type: 'string', description: 'Related context ID (for create operation, optional)' },
-                id: { type: 'string', description: 'Memory ID (for read/delete operations)' },
-                query: { type: 'string', description: 'Search query (for search operation)' },
-                limit: { type: 'number', description: 'Result limit (for search/list operations)', default: 10 }
+                content: { type: 'string', description: 'Memory content' },
+                summary: { type: 'string', description: 'Memory summary' },
+                tags: { type: 'array', items: { type: 'string' }, description: 'Tags (optional)' },
+                context_id: { type: 'string', description: 'Related context ID (optional)' }
               },
-              required: ['operation']
+              required: ['content', 'summary']
+            }
+          },
+          {
+            name: 'read_memory',
+            description: 'Retrieve specific memory by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Memory ID' }
+              },
+              required: ['id']
+            }
+          },
+          {
+            name: 'search_memories',
+            description: 'Search memories by query',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                query: { type: 'string', description: 'Search query' },
+                limit: { type: 'number', description: 'Result limit', default: 10 }
+              },
+              required: ['query']
+            }
+          },
+          {
+            name: 'list_memories',
+            description: 'List memories with optional filtering',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                tags: { type: 'array', items: { type: 'string' }, description: 'Filter by tags (optional)' }
+              }
+            }
+          },
+          {
+            name: 'delete_memory',
+            description: 'Delete memory by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Memory ID' }
+              },
+              required: ['id']
             }
           },
           // Task management tools
           {
-            name: 'task_tool',
-            description: 'Unified task management tool with operation: "create", "read", "update", "delete", "list", "search"\n\nExample usage:\n' +
-              JSON.stringify({
-                "tool": "task_tool",
-                "arguments": {
-                  "operation": "create",
-                  "title": "Complete product prototype",
-                  "description": "Build the product prototype based on meeting discussions",
-                  "priority": "high",
-                  "tags": ["development", "prototype"],
-                  "due_date": "2024-12-31T23:59:59Z",
-                  "linked_memories": ["memory-id-1", "memory-id-2"],
-                  "depends_on": ["1", "2"]
-                }
-              }, null, 2) + '\n\n' +
-              JSON.stringify({
-                "tool": "task_tool",
-                "arguments": {
-                  "operation": "update",
-                  "id": "task-id",
-                  "status": "in_progress",
-                  "progress_note": "Initial design completed"
-                }
-              }, null, 2),
+            name: 'create_task',
+            description: 'Create new task',
             inputSchema: {
               type: 'object',
               properties: {
-                operation: { 
-                  type: 'string', 
-                  enum: ['create', 'read', 'update', 'delete', 'list', 'search'],
-                  description: 'Operation type: "create", "read", "update", "delete", "list", "search"'
-                },
-                id: { type: 'string', description: 'Task ID (for read/update/delete operations)' },
-                title: { type: 'string', description: 'Task title (for create/update operations)' },
-                description: { type: 'string', description: 'Task description (for create/update operations)' },
-                status: { 
-                  type: 'string', 
-                  enum: ['todo', 'in_progress', 'completed', 'cancelled'],
-                  description: 'Task status (for update operation)' 
-                },
-                priority: { 
-                  type: 'string', 
-                  enum: ['low', 'medium', 'high'],
-                  description: 'Priority (for create/update operations)',
-                  default: 'medium'
-                },
-                tags: { type: 'array', items: { type: 'string' }, description: 'Tags (for create/update/list/search operations)' },
-                due_date: { type: 'string', description: 'Due date in ISO format (for create/update operations)' },
-                linked_memories: { type: 'array', items: { type: 'string' }, description: 'Related memory IDs (for create/update operations)' },
-                depends_on: { type: 'array', items: { type: 'string' }, description: 'Task IDs this task depends on (for create/update operations)' },
-                progress_note: { type: 'string', description: 'Progress note (for update operation)' },
-                query: { type: 'string', description: 'Search query (for search operation)' },
-                limit: { type: 'number', description: 'result limit (for list/search operations)', default: 10 }
+                title: { type: 'string', description: 'Task title' },
+                description: { type: 'string', description: 'Task description' },
+                priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Priority (optional)', default: 'medium' },
+                tags: { type: 'array', items: { type: 'string' }, description: 'Tags (optional)' },
+                due_date: { type: 'string', description: 'Due date in ISO format (optional)' },
+                linked_memories: { type: 'array', items: { type: 'string' }, description: 'Related memory IDs (optional)' },
+                depends_on: { type: 'array', items: { type: 'string' }, description: 'Task IDs this task depends on (optional)' }
               },
-              required: ['operation']
+              required: ['title', 'description']
+            }
+          },
+          {
+            name: 'read_task',
+            description: 'Retrieve specific task by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Task ID' }
+              },
+              required: ['id']
+            }
+          },
+          {
+            name: 'update_task',
+            description: 'Update existing task',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Task ID' },
+                status: { type: 'string', enum: ['todo', 'in_progress', 'completed', 'cancelled'], description: 'Task status (optional)' },
+                title: { type: 'string', description: 'Task title (optional)' },
+                description: { type: 'string', description: 'Task description (optional)' },
+                priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Priority (optional)' },
+                progress_note: { type: 'string', description: 'Progress note (optional)' },
+                depends_on: { type: 'array', items: { type: 'string' }, description: 'Task IDs this task depends on (optional)' }
+              },
+              required: ['id']
+            }
+          },
+          {
+            name: 'search_tasks',
+            description: 'Search tasks by query',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                query: { type: 'string', description: 'Search query' },
+                limit: { type: 'number', description: 'Result limit', default: 10 }
+              },
+              required: ['query']
+            }
+          },
+          {
+            name: 'list_tasks',
+            description: 'List tasks with optional filtering',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                status: { type: 'string', enum: ['todo', 'in_progress', 'completed', 'cancelled'], description: 'Filter by status (optional)' },
+                priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Filter by priority (optional)' },
+                tags: { type: 'array', items: { type: 'string' }, description: 'Filter by tags (optional)' }
+              }
+            }
+          },
+          {
+            name: 'delete_task',
+            description: 'Delete task by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Task ID' }
+              },
+              required: ['id']
             }
           },
           // Context management tools
@@ -435,299 +490,270 @@ export class MemoryContextServer {
       
       try {
         switch (name) {
-          case 'memory_tool': {
-            const { operation, ...params } = args as any;
-
-            switch (operation) {
-              case 'create': {
-                const memory = await this.memoryManager.addMemory(params);
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Memory added successfully. ID: ${memory.id}`
-                    }
-                  ]
-                };
-              }
-              
-              case 'read': {
-                const memory = await this.memoryManager.getMemory(params.id);
-                
-                if (!memory) {
-                  return {
-                    content: [
-                      {
-                        type: 'text',
-                        text: `Memory ${params.id} does not exist.`
-                      }
-                    ]
-                  };
+          case 'create_memory': {
+            const memory = await this.memoryManager.addMemory(args as AddMemoryArgs);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Memory added successfully. ID: ${memory.id}`
                 }
-
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Memory details:\nID: ${memory.id}\nSummary: ${memory.summary}\nContent: ${memory.content}\nTags: ${memory.metadata.tags.join(', ')}\nCreated at: ${memory.metadata.created_at}\nUpdated at: ${memory.metadata.updated_at}`
-                    }
-                  ]
-                };
-              }
-              
-              case 'search': {
-                const results = await this.memoryManager.searchMemory(params);
-                
-                const truncateContent = (content: string, maxLength: number = 100) => {
-                  return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
-                };
-                
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Found ${results.length} related memories:\n\n${results.map(r => 
-                        `ID: ${r.memory.id}\nSummary: ${r.memory.summary}\nContent Preview: ${truncateContent(r.memory.content)}\nTags: ${r.memory.metadata.tags.join(', ')}\nCreated at: ${r.memory.metadata.created_at}\nSimilarity: ${r.similarity.toFixed(2)}\n---`
-                      ).join('\n')}`
-                    }
-                  ]
-                };
-              }
-              
-              case 'list': {
-                const memories = await this.memoryManager.listMemories(params);
-
-                const truncateContent = (content: string, maxLength: number = 100) => {
-                  return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
-                };
-
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Total ${memories.length} memories:\n\n${memories.map(m => 
-                        `ID: ${m.id}\nSummary: ${m.summary}\nContent Preview: ${truncateContent(m.content)}\nTags: ${m.metadata.tags.join(', ')}\nCreated at: ${m.metadata.created_at}\n---`
-                      ).join('\n')}`
-                    }
-                  ]
-                };
-              }
-              
-              case 'delete': {
-                const result = await this.memoryManager.deleteMemory(params);
-                
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: result ? `Memory ${params.id} deleted successfully.` : `Memory ${params.id} does not exist.`
-                    }
-                  ]
-                };
-              }
-              
-              default: {
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Unknown operation: ${operation}. Supported operations: create, read, search, list, delete`
-                    }
-                  ]
-                };
-              }
+              ]
+            };
+          }
+          
+          case 'read_memory': {
+            const { id } = args as { id: string };
+            const memory = await this.memoryManager.getMemory(id);
+            
+            if (!memory) {
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `Memory ${id} does not exist.`
+                  }
+                ]
+              };
             }
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Memory details:\nID: ${memory.id}\nSummary: ${memory.summary}\nContent: ${memory.content}\nTags: ${memory.metadata.tags.join(', ')}\nCreated at: ${memory.metadata.created_at}\nUpdated at: ${memory.metadata.updated_at}`
+                }
+              ]
+            };
+          }
+          
+          case 'search_memories': {
+            const results = await this.memoryManager.searchMemory(args as SearchMemoryArgs);
+            
+            const truncateContent = (content: string, maxLength: number = 100) => {
+              return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+            };
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Found ${results.length} related memories:\n\n${results.map(r => 
+                    `ID: ${r.memory.id}\nSummary: ${r.memory.summary}\nContent Preview: ${truncateContent(r.memory.content)}\nTags: ${r.memory.metadata.tags.join(', ')}\nCreated at: ${r.memory.metadata.created_at}\nSimilarity: ${r.similarity.toFixed(2)}\n---`
+                  ).join('\n')}`
+                }
+              ]
+            };
+          }
+          
+          case 'list_memories': {
+            const memories = await this.memoryManager.listMemories(args as ListMemoriesArgs);
+
+            const truncateContent = (content: string, maxLength: number = 100) => {
+              return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+            };
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Total ${memories.length} memories:\n\n${memories.map(m => 
+                    `ID: ${m.id}\nSummary: ${m.summary}\nContent Preview: ${truncateContent(m.content)}\nTags: ${m.metadata.tags.join(', ')}\nCreated at: ${m.metadata.created_at}\n---`
+                  ).join('\n')}`
+                }
+              ]
+            };
+          }
+          
+          case 'delete_memory': {
+            const deleteArgs = args as DeleteMemoryArgs;
+            const result = await this.memoryManager.deleteMemory(deleteArgs);
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result ? `Memory ${deleteArgs.id} deleted successfully.` : `Memory ${deleteArgs.id} does not exist.`
+                }
+              ]
+            };
           }
 
-          case 'task_tool': {
-            const { operation, ...params } = args as any;
+          case 'create_task': {
+            const task = await this.taskManager.createTask(args as CreateTaskArgs);
+            const executableTasks = await this.taskManager.getExecutableTasks();
+            const isExecutable = executableTasks.some(t => t.id === task.id);
+            const dependsText = task.depends_on && task.depends_on.length > 0 ? 
+              `\nDependencies: ${task.depends_on.join(', ')}` : '';
+            const statusText = isExecutable ? 
+              '\nStatus: Ready to execute' : 
+              (task.depends_on && task.depends_on.length > 0 ? 
+                '\nStatus: Waiting for dependencies to complete' : 
+                '\nStatus: Ready to execute');
+            const nextAction = isExecutable ? 
+              '\nNext: Use update_task to set status to "in_progress" when ready to start' :
+              '\nNext: Complete dependent tasks first, then use overview to check executable tasks';
             
-            switch (operation) {
-              case 'create': {
-                const task = await this.taskManager.createTask(params);
-                const executableTasks = await this.taskManager.getExecutableTasks();
-                const isExecutable = executableTasks.some(t => t.id === task.id);
-                const dependsText = task.depends_on && task.depends_on.length > 0 ? 
-                  `\nDependencies: ${task.depends_on.join(', ')}` : '';
-                const statusText = isExecutable ? 
-                  '\nStatus: Ready to execute' : 
-                  (task.depends_on && task.depends_on.length > 0 ? 
-                    '\nStatus: Waiting for dependencies to complete' : 
-                    '\nStatus: Ready to execute');
-                const nextAction = isExecutable ? 
-                  '\nNext: Use task_tool update to set status to "in_progress" when ready to start' :
-                  '\nNext: Complete dependent tasks first, then use overview to check executable tasks';
-                
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Task ${task.id} created successfully.\nTitle: ${task.title}\nPriority: ${task.priority}${dependsText}${statusText}${nextAction}`
-                    }
-                  ]
-                };
-              }
-              
-              case 'read': {
-                const task = await this.taskManager.getTaskStatus(params);
-                
-                if (!task) {
-                  return {
-                    content: [
-                      {
-                        type: 'text',
-                        text: `Task ${params.id} does not exist.`
-                      }
-                    ]
-                  };
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Task ${task.id} created successfully.\nTitle: ${task.title}\nPriority: ${task.priority}${dependsText}${statusText}${nextAction}`
                 }
-
-                const linkedMemoriesText = task.linked_memories.length > 0 ? 
-                  `Linked memories:\n${task.linked_memories.map(id => `  - ${id}`).join('\n')}` : 
-                  'Linked memories: None';
-                
-                const progressNotesText = task.progress_notes.length > 0 ? 
-                  `Progress notes:\n${task.progress_notes.map((note, i) => `  ${i + 1}. ${note}`).join('\n')}` : 
-                  'Progress notes: None';
-
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Task details:\nID: ${task.id}\nTitle: ${task.title}\nDescription: ${task.description}\nStatus: ${task.status}\nPriority: ${task.priority}\nTags: ${task.tags.join(', ')}\nCreated at: ${task.created_at}\nLast updated: ${task.updated_at}\nDue date: ${task.due_date || 'Not set'}\n${linkedMemoriesText}\n${progressNotesText}`
-                    }
-                  ]
-                };
-              }
-              
-              case 'update': {
-                const task = await this.taskManager.updateTask(params);
-                
-                if (!task) {
-                  return {
-                    content: [
-                      {
-                        type: 'text',
-                        text: `Task ${params.id} does not exist.`
-                      }
-                    ]
-                  };
-                }
-                
-                // Check for unlocked tasks if this task was completed
-                let unlockedTasksText = '';
-                if (task.status === 'completed') {
-                  const allTasks = await this.taskManager.getTasksInOrder();
-                  const unlockedTasks = allTasks.filter(t => 
-                    t.depends_on && t.depends_on.includes(task.id) && 
-                    t.status !== 'completed' && t.status !== 'cancelled'
-                  );
-                  if (unlockedTasks.length > 0) {
-                    unlockedTasksText = `\nUnlocked tasks: ${unlockedTasks.map(t => `Task ${t.id}`).join(', ')}`;
+              ]
+            };
+          }
+          
+          case 'read_task': {
+            const { id } = args as { id: string };
+            const task = await this.taskManager.getTaskStatus({ id } as GetTaskStatusArgs);
+            
+            if (!task) {
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `Task ${id} does not exist.`
                   }
+                ]
+              };
+            }
+
+            const linkedMemoriesText = task.linked_memories.length > 0 ? 
+              `Linked memories:\n${task.linked_memories.map(id => `  - ${id}`).join('\n')}` : 
+              'Linked memories: None';
+            
+            const progressNotesText = task.progress_notes.length > 0 ? 
+              `Progress notes:\n${task.progress_notes.map((note, i) => `  ${i + 1}. ${note}`).join('\n')}` : 
+              'Progress notes: None';
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Task details:\nID: ${task.id}\nTitle: ${task.title}\nDescription: ${task.description}\nStatus: ${task.status}\nPriority: ${task.priority}\nTags: ${task.tags.join(', ')}\nCreated at: ${task.created_at}\nLast updated: ${task.updated_at}\nDue date: ${task.due_date || 'Not set'}\n${linkedMemoriesText}\n${progressNotesText}`
                 }
-                
-                // Get next action suggestion
-                const executableTasks = await this.taskManager.getExecutableTasks();
-                const nextActionText = executableTasks.length > 0 ? 
-                  `\nNext: ${executableTasks.length} task(s) ready to execute. Use overview to see them.` :
-                  '\nNext: Use overview to check system status and plan next steps.';
-                
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Task ${task.id} updated successfully.\nStatus: ${task.status}\nLast updated: ${task.updated_at}${unlockedTasksText}${nextActionText}`
-                    }
-                  ]
-                };
-              }
-              
-              case 'delete': {
-                const result = await this.taskManager.deleteTask(params);
-                
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: result ? `Task ${params.id} deleted successfully.` : `Task ${params.id} does not exist.`
-                    }
-                  ]
-                };
-              }
-              
-              case 'list': {
-                const tasks = await this.taskManager.listTasks(params);
-                const executableTasks = await this.taskManager.getExecutableTasks();
-
-                const truncateDescription = (description: string, maxLength: number = 100) => {
-                  return description.length > maxLength ? description.substring(0, maxLength) + '...' : description;
-                };
-
-                // Sort tasks by numeric ID for better order display
-                const sortedTasks = tasks.sort((a, b) => parseInt(a.id) - parseInt(b.id));
-                
-                const taskList = sortedTasks.map(t => {
-                  const isExecutable = executableTasks.some(et => et.id === t.id);
-                  const statusIcon = t.status === 'completed' ? 'DONE' : 
-                                    t.status === 'in_progress' ? 'ACTIVE' : 
-                                    t.status === 'cancelled' ? 'CANCELLED' :
-                                    isExecutable ? 'READY' : 'WAITING';
-                  const dependsText = t.depends_on && t.depends_on.length > 0 ? 
-                    `\nDepends on: ${t.depends_on.join(', ')}` : '';
-                  
-                  return `Task ${t.id}: ${t.title}\nStatus: ${statusIcon} | Priority: ${t.priority}\nDescription: ${truncateDescription(t.description)}${dependsText}\n---`;
-                }).join('\n');
-
-                const executableCount = executableTasks.filter(t => tasks.some(lt => lt.id === t.id)).length;
-                const suggestion = executableCount > 0 ? 
-                  `\n${executableCount} task(s) ready to execute. Consider starting with task_tool update.` :
-                  '\nUse overview to see all tasks with dependency information.';
-
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Total ${tasks.length} tasks:\n\n${taskList}${suggestion}`
-                    }
-                  ]
-                };
-              }
-              
-              case 'search': {
-                const tasks = await this.taskManager.searchTask(params);
-                
-                const truncateDescription = (description: string, maxLength: number = 100) => {
-                  return description.length > maxLength ? description.substring(0, maxLength) + '...' : description;
-                };
-                
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Found ${tasks.length} related tasks:\n\n${tasks.map(t => 
-                        `ID: ${t.task.id}\nTitle: ${t.task.title}\nDescription Preview: ${truncateDescription(t.task.description)}\nStatus: ${t.task.status}\nPriority: ${t.task.priority}\nTags: ${t.task.tags.join(', ')}\nSimilarity: ${t.similarity.toFixed(2)}\n---`
-                      ).join('\n')}`
-                    }
-                  ]
-                };
-              }
-              
-              default: {
-                return {
-                  content: [
-                    {
-                      type: 'text',
-                      text: `Unknown operation: ${operation}. Supported operations: create, read, update, delete, list, search`
-                    }
-                  ]
-                };
+              ]
+            };
+          }
+          
+          case 'update_task': {
+            const updateArgs = args as UpdateTaskArgs;
+            const task = await this.taskManager.updateTask(updateArgs);
+            
+            if (!task) {
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `Task ${updateArgs.id} does not exist.`
+                  }
+                ]
+              };
+            }
+            
+            // Check for unlocked tasks if this task was completed
+            let unlockedTasksText = '';
+            if (task.status === 'completed') {
+              const allTasks = await this.taskManager.getTasksInOrder();
+              const unlockedTasks = allTasks.filter(t => 
+                t.depends_on && t.depends_on.includes(task.id) && 
+                t.status !== 'completed' && t.status !== 'cancelled'
+              );
+              if (unlockedTasks.length > 0) {
+                unlockedTasksText = `\nUnlocked tasks: ${unlockedTasks.map(t => `Task ${t.id}`).join(', ')}`;
               }
             }
+            
+            // Get next action suggestion
+            const executableTasks = await this.taskManager.getExecutableTasks();
+            const nextActionText = executableTasks.length > 0 ? 
+              `\nNext: ${executableTasks.length} task(s) ready to execute. Use overview to see them.` :
+              '\nNext: Use overview to check system status and plan next steps.';
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Task ${task.id} updated successfully.\nStatus: ${task.status}\nLast updated: ${task.updated_at}${unlockedTasksText}${nextActionText}`
+                }
+              ]
+            };
+          }
+          
+          case 'delete_task': {
+            const deleteArgs = args as DeleteTaskArgs;
+            const result = await this.taskManager.deleteTask(deleteArgs);
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result ? `Task ${deleteArgs.id} deleted successfully.` : `Task ${deleteArgs.id} does not exist.`
+                }
+              ]
+            };
+          }
+          
+          case 'list_tasks': {
+            const tasks = await this.taskManager.listTasks(args as ListTasksArgs);
+            const executableTasks = await this.taskManager.getExecutableTasks();
+
+            const truncateDescription = (description: string, maxLength: number = 100) => {
+              return description.length > maxLength ? description.substring(0, maxLength) + '...' : description;
+            };
+
+            // Sort tasks by numeric ID for better order display
+            const sortedTasks = tasks.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+            
+            const taskList = sortedTasks.map(t => {
+              const isExecutable = executableTasks.some(et => et.id === t.id);
+              const statusIcon = t.status === 'completed' ? 'DONE' : 
+                                t.status === 'in_progress' ? 'ACTIVE' : 
+                                t.status === 'cancelled' ? 'CANCELLED' :
+                                isExecutable ? 'READY' : 'WAITING';
+              const dependsText = t.depends_on && t.depends_on.length > 0 ? 
+                `\nDepends on: ${t.depends_on.join(', ')}` : '';
+              
+              return `Task ${t.id}: ${t.title}\nStatus: ${statusIcon} | Priority: ${t.priority}\nDescription: ${truncateDescription(t.description)}${dependsText}\n---`;
+            }).join('\n');
+
+            const executableCount = executableTasks.filter(t => tasks.some(lt => lt.id === t.id)).length;
+            const suggestion = executableCount > 0 ? 
+              `\n${executableCount} task(s) ready to execute. Consider starting with update_task.` :
+              '\nUse overview to see all tasks with dependency information.';
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Total ${tasks.length} tasks:\n\n${taskList}${suggestion}`
+                }
+              ]
+            };
+          }
+          
+          case 'search_tasks': {
+            const tasks = await this.taskManager.searchTask(args as SearchTaskArgs);
+            
+            const truncateDescription = (description: string, maxLength: number = 100) => {
+              return description.length > maxLength ? description.substring(0, maxLength) + '...' : description;
+            };
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Found ${tasks.length} related tasks:\n\n${tasks.map(t => 
+                    `ID: ${t.task.id}\nTitle: ${t.task.title}\nDescription Preview: ${truncateDescription(t.task.description)}\nStatus: ${t.task.status}\nPriority: ${t.task.priority}\nTags: ${t.task.tags.join(', ')}\nSimilarity: ${t.similarity.toFixed(2)}\n---`
+                  ).join('\n')}`
+                }
+              ]
+            };
           }
 
           case 'create_context_snapshot': {
-            const context = await this.contextManager.createContextSnapshot(args as any);
+            const context = await this.contextManager.createContextSnapshot(args as CreateContextSnapshotArgs);
             
             return {
               content: [

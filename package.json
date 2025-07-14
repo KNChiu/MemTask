@@ -1,6 +1,6 @@
 {
   "name": "memory-task-mcp",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Memory and task management MCP Server",
   "bin": {
     "memory-task-mcp": "./dist/src/index.js"

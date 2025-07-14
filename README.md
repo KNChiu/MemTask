@@ -21,22 +21,14 @@ This is a complete implementation of a Model Context Protocol (MCP) server, prov
 - **Dependency Validation**: Prevents circular dependencies and validates executable tasks
 - **Semantic Linking**: Mechanism to associate tasks with memories
 
-## Installation & Setup
+## Quick Start
 
-### Environment Requirements
+### 1. Install Dependencies
 ```bash
-npm install @modelcontextprotocol/sdk
-npm install typescript ts-node
+npm install
 ```
 
-## Test Server (MCP Inspector)
-
-```bash
-npx @modelcontextprotocol/inspector ts-node index.ts
-```
-
-## Run Server
-
+### 2. Build & Run Server
 ```bash
 # Development mode
 npm run dev
@@ -44,146 +36,161 @@ npm run dev
 # Production mode
 npm run build
 npm start
-
-# npx execution
-npm run build
-npx server-memory-task
-
-# local server
-npm run build
-npm link
-mcp-server-memory-task
 ```
 
-## Add Memory & Task Management Server to MCP Client
+### 3. Test with MCP Inspector
+```bash
+npx @modelcontextprotocol/inspector ts-node src/index.ts
 ```
-node {path}/dist/index.js --env MCP_DATA_DIR={path}/mcp_data
+
+### 4. Add to MCP Client Configuration
+```json
+{
+  "mcpServers": {
+    "memory-task": {
+      "command": "node",
+      "args": ["/path/to/MemTask/dist/src/index.js"],
+      "env": {
+        "MCP_DATA_DIR": "/path/to/mcp_data"
+      }
+    }
+  }
+}
 ```
 
-## Web Viewer Dashboard
+## Web Dashboard (Optional)
 
-The server includes a web-based monitoring dashboard that provides real-time insights into the system's operations. To access the dashboard:
+The server includes a web-based monitoring dashboard for managing memories and tasks through a browser interface.
 
-1. Start the server in development mode: `node web-viewer/server.js --data-dir {mcp_data_dir}`
-2. Open your browser to `http://localhost:8080`
+### Start Dashboard
+```bash
+node web-viewer/server.js --data-dir ./mcp_data
+# Access at http://localhost:8080
+```
 
-The dashboard provides three distinct views:
+### Features
+- **Task Management**: List view, Kanban board, and dependency visualization
+- **Memory Browser**: Search and manage stored memories
+- **Real-time Updates**: WebSocket-based live data synchronization
+- **Visual Indicators**: Color-coded status badges and progress tracking
 
-### List View (Default)
-- **System Overview**: Real-time statistics and metrics
-- **Task Management**: Complete task listing with expandable details
-- **Memory Management**: Browse and search through stored memories
-- **Context Snapshots**: Recent context captures with timestamps
+### Screenshots
 
-### Kanban Board View
-- **Visual Task Flow**: Drag-and-drop style task management
-- **Status Columns**: Todo, In Progress, and Completed sections
-- **Progress Tracking**: Real-time completion rate visualization
-- **Task Cards**: Compact view with priority indicators
-
-### Dependencies View
-- **Dependency Visualization**: Clear view of task relationships
-- **Status Badges**: Color-coded task IDs showing current status
-  - 🔴 Todo: Red badges for pending tasks
-  - 🟡 In Progress: Orange badges for active tasks
-  - 🟢 Completed: Green badges for finished tasks
-  - ⚪ Cancelled: Grey badges for cancelled tasks
-- **Blocking Relationships**: Shows which tasks are blocked by dependencies
-- **Interactive Details**: Expandable rows with complete task information
-
+#### Main Dashboard
 ![Monitoring Dashboard](image/dashboard.png)  
-*Example monitoring interface*
+*Main monitoring interface with system overview*
 
-### Kanban Board
-![Kanban Board](image/Kanban_Board.png) 
+#### Kanban Board View
+![Kanban Board](image/Kanban_Board.png)  
+*Visual task management with drag-and-drop workflow*
 
-### Dependencies
-![Dependencies](image/Dependencies.png) 
+#### Dependencies View  
+![Dependencies](image/Dependencies.png)  
+*Task relationship visualization with status indicators*
 
-### Key Features
-- **Real-time Updates**: WebSocket-powered live data synchronization
-- **Multi-View Interface**: List, Kanban, and Dependencies views
-- **Visual Status Indicators**: Color-coded badges and progress bars
-- **Task Relationship Management**: Dependency tracking and validation
-- **Interactive UI**: Expandable details and hover effects
-- **Responsive Design**: Mobile-friendly interface
+#### Task Management Interface
+![Task Management Interface](image/tasks.png)   
+*Detailed task management with expandable information*
 
-> Note: The monitoring page requires the web-viewer component to be running. See the "Run Server" section for startup instructions.
+#### Memory Management Interface
+![Memory Management Interface](image/memories.png)   
+*Memory browser and search functionality*
 
-### Project Structure
-```
-├── src/
-│   ├── config.ts             # Configuration management
-│   ├── logger.ts             # Logging utilities
-│   ├── index.ts              # Entry point
-│   ├── server.ts             # MCP Server implementation
-│   ├── memory.ts             # Memory service + storage
-│   ├── task.ts               # Task service + storage
-│   ├── context.ts            # Context service + storage
-│   ├── utils.ts              # Utility functions
-│   └── types.ts              # Type definitions
-├── web-viewer/
-│   ├── server.js             # Web dashboard server
-│   └── public/
-│       ├── index.html        # Dashboard HTML
-│       ├── app.js            # Frontend JavaScript
-│       └── style.css         # Dashboard styles
-├── package.json              # Dependencies and scripts
-├── tsconfig.json             # TypeScript configuration
-└── README.md                 # Documentation
-```
+#### Context Snapshots Interface
+![Context Snapshots Interface](image/context_snapshots.png)   
+*Context snapshot management and browsing*
+
+## ⚠️ Breaking Changes in v2.0.0
+
+**IMPORTANT**: Version 2.0.0 introduces breaking changes to improve LLM compatibility. The unified `memory_tool` and `task_tool` have been decomposed into 11 separate, operation-specific tools.
+
+### What Changed
+- **Old**: `memory_tool` with `operation` parameter → **New**: 5 separate memory tools
+- **Old**: `task_tool` with `operation` parameter → **New**: 6 separate task tools
+
+### Migration Required
+If upgrading from v1.x, you **must** update all tool calls in your MCP client configuration. See the [MCP Usage Guide](#mcp-usage-guide) below for new tool usage examples.
+
+### Tool Mapping
+| v1.x Tool | v1.x Operation | v2.0 Tool |
+|-----------|----------------|-----------|
+| `memory_tool` | `"create"` | `create_memory` |
+| `memory_tool` | `"read"` | `read_memory` |
+| `memory_tool` | `"search"` | `search_memories` |
+| `memory_tool` | `"list"` | `list_memories` |
+| `memory_tool` | `"delete"` | `delete_memory` |
+| `task_tool` | `"create"` | `create_task` |
+| `task_tool` | `"read"` | `read_task` |
+| `task_tool` | `"update"` | `update_task` |
+| `task_tool` | `"search"` | `search_tasks` |
+| `task_tool` | `"list"` | `list_tasks` |
+| `task_tool` | `"delete"` | `delete_task` |
 
 ## MCP Usage Guide
 
 ### Memory Management
 
-#### Unified Memory Tool
+#### Create Memory
 ```json
 {
-  "tool": "memory_tool",
+  "tool": "create_memory",
   "arguments": {
-    "operation": "create",
     "content": "Meeting notes: Discussed new product feature planning",
     "summary": "Product feature meeting notes",
     "tags": ["meeting", "product"],
     "context_id": "optional-context-id"
   }
 }
+```
 
+#### Read Memory
+```json
 {
-  "tool": "memory_tool",
+  "tool": "read_memory",
   "arguments": {
-    "operation": "search",
+    "id": "memory-id-123"
+  }
+}
+```
+
+#### Search Memories
+```json
+{
+  "tool": "search_memories",
+  "arguments": {
     "query": "product feature",
     "limit": 5
   }
 }
+```
 
+#### List Memories
+```json
 {
-  "tool": "memory_tool",
+  "tool": "list_memories",
   "arguments": {
-    "operation": "list",
     "tags": ["meeting"]
   }
 }
+```
 
+#### Delete Memory
+```json
 {
-  "tool": "memory_tool",
+  "tool": "delete_memory",
   "arguments": {
-    "operation": "delete",
-    "id": "memory-id"
+    "id": "memory-id-123"
   }
 }
 ```
 
 ### Task Management
 
-#### Unified Task Tool
+#### Create Task
 ```json
 {
-  "tool": "task_tool",
+  "tool": "create_task",
   "arguments": {
-    "operation": "create",
     "title": "Complete product prototype",
     "description": "Build the product prototype based on meeting discussions",
     "priority": "high",
@@ -193,31 +200,58 @@ The dashboard provides three distinct views:
     "depends_on": ["task-id-1", "task-id-2"]
   }
 }
+```
 
+#### Read Task
+```json
 {
-  "tool": "task_tool",
+  "tool": "read_task",
   "arguments": {
-    "operation": "update",
-    "id": "task-id",
+    "id": "task-id-456"
+  }
+}
+```
+
+#### Update Task
+```json
+{
+  "tool": "update_task",
+  "arguments": {
+    "id": "task-id-456",
     "status": "in_progress",
     "progress_note": "Initial design completed"
   }
 }
+```
 
+#### Search Tasks
+```json
 {
-  "tool": "task_tool",
+  "tool": "search_tasks",
   "arguments": {
-    "operation": "read",
-    "id": "task-id"
+    "query": "prototype development",
+    "limit": 10
   }
 }
+```
 
+#### List Tasks
+```json
 {
-  "tool": "task_tool",
+  "tool": "list_tasks",
   "arguments": {
-    "operation": "list",
     "status": "in_progress",
     "priority": "high"
+  }
+}
+```
+
+#### Delete Task
+```json
+{
+  "tool": "delete_task",
+  "arguments": {
+    "id": "task-id-456"
   }
 }
 ```
@@ -249,94 +283,37 @@ The dashboard provides three distinct views:
 
 ## Data Formats
 
-### Memory Format
+All data is stored as JSON files in the `mcp_data/` directory:
+- **Memories**: Content, summary, tags, timestamps, and optional context links
+- **Tasks**: Title, description, status, priority, dependencies, and linked memories  
+- **Context Snapshots**: Conversation summaries with related memories and tasks
+
+For detailed schema information, see the TypeScript interfaces in `src/types.ts`.
+
+## Integration Recommendations
+
+### Integrating with MCP Client (v2.0)
+1. **Important**: Ensure you're using v2.0 compatible configuration
+2. Add this server to the MCP client configuration using the new tool names
+3. Use the stdio protocol for communication
+4. Manage memories and tasks via the 11 operation-specific tools
+
+### MCP Client Configuration Example
 ```json
 {
-  "id": "uuid-string",
-  "content": "Memory content",
-  "summary": "Memory summary",
-  "embedding": [],
-  "metadata": {
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-01-01T00:00:00Z",
-    "tags": ["tag1", "tag2"],
-    "context_id": "related-context-id"
+  "mcpServers": {
+    "memory-task": {
+      "command": "node",
+      "args": ["/path/to/MemTask/dist/src/index.js"],
+      "env": {
+        "MCP_DATA_DIR": "/path/to/mcp_data"
+      }
+    }
   }
 }
 ```
 
-### Task Format
-```json
-{
-  "id": "uuid-string",
-  "title": "Task title",
-  "description": "Task description",
-  "status": "todo|in_progress|completed|cancelled",
-  "priority": "low|medium|high",
-  "tags": ["tag1", "tag2"],
-  "created_at": "2024-01-01T00:00:00Z",
-  "updated_at": "2024-01-01T00:00:00Z",
-  "due_date": "2024-12-31T23:59:59Z",
-  "linked_memories": ["memory-id-1", "memory-id-2"],
-  "depends_on": ["prerequisite-task-id-1", "prerequisite-task-id-2"],
-  "progress_notes": [
-    "2024-01-01T00:00:00Z: Progress note 1",
-    "2024-01-02T00:00:00Z: Progress note 2"
-  ]
-}
-```
-
-## Integration Recommendations
-
-### Integrating with MCP Client
-1. Add this server to the MCP client configuration
-2. Use the stdio protocol for communication
-3. Manage memories and tasks via tool invocation MCP
-
-### Extension Features
-1. **Scheduling**: Add scheduled task reminders
-2. **Collaboration**: Multi-user memory and task sharing
-3. **Backup & Sync**: Cloud backup and ...
-
-## Performance Optimizations
-
-### Implemented Optimizations
-1. **LRU Cache**: Memory cache with size limits and expiration policies
-2. **Batch Operations**: Efficient batch processing to reduce database access
-3. **Async I/O**: All file operations use asynchronous patterns for better performance
-4. **Error Handling**: Unified error handling strategy with detailed error logging
-
-### Future Optimizations
-1. **Database** Migration: Option to use SQLite or other databases for larger datasets
-2. **Pagination**: Add pagination support for large result sets
-3. **Compression**: Implement data compression for memory storage
-4. **Worker Threads**: Use worker threads for CPU-intensive operations
-
-### Task Management Interface
-![Task Management Interface](image/tasks.png)   
-*Example task management interface*
-
-### Memory Management Interface
-![Memory Management Interface](image/memories.png)   
-*Example memory management interface*
-
-### Context Snapshots Interface
-![Context Snapshots Interface](image/context_snapshots.png)   
-*Example context snapshots interface*
-
-## Development Guidelines
-
-### Code Structure
-- Follow the three-layer architecture: Storage Layer, Service Layer, and MCP Layer
-- Each class should have a single responsibility
-- Use dependency injection for better testability
-
-### TypeScript Best Practices
-- Use strict typing and avoid `any` where possible
-- Define interfaces for all MCP parameters and return values
-- Use generics for reusable components
-
-### Testing
-- Unit tests for all services and utilities
-- Integration tests for MCP endpoints
-- Run tests with `npm test`
+### Version Compatibility Notes
+- **v2.0**: Uses 11 operation-specific tools (current)
+- **v1.x**: Used unified `memory_tool` and `task_tool` (deprecated)
+- **No backward compatibility** between major versions
