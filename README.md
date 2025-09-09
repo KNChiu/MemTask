@@ -1,10 +1,19 @@
-# MCP Memory & Task Management Server
+# MCP Memory & Task Management Server with Goal Tracking
 
 ## Overview
 
-This is a complete implementation of a Model Context Protocol (MCP) server, providing memory and context management, as well as task and progress tracking functionalities. The server adopts a modular design and emphasizes a local-first data storage strategy.
+This is a complete implementation of a Model Context Protocol (MCP) server, providing goal management, task tracking, memory storage, and context management functionalities. The server implements a three-tier Goal -> Task -> Memory architecture with a modular design and local-first data storage strategy.
 
 ## Features
+
+### Goal Management Module
+- **Strategic Planning**: High-level goal creation and tracking with success criteria
+- **Goal Hierarchy**: Goal -> Task -> Memory three-tier architecture
+- **Status Management**: planning, active, completed, on_hold, cancelled states
+- **Progress Tracking**: Automatic progress calculation based on linked tasks
+- **Success Criteria**: Definable milestones and completion requirements
+- **Target Dates**: Goal timeline management with overdue detection
+- **Task Integration**: Seamless linking between goals and implementation tasks
 
 ### Memory & Context Management Module
 - **Persistent Memory**: Local JSON file storage to ensure data privacy
@@ -14,6 +23,7 @@ This is a complete implementation of a Model Context Protocol (MCP) server, prov
 
 ### Task & Progress Tracking Module
 - **Task CRUD**: Full lifecycle management for tasks
+- **Goal Integration**: Tasks can be linked to parent goals via `goal_id`
 - **Status Tracking**: todo, in progress, completed, cancelled
 - **Priority Management**: Three levels—low, medium, high
 - **Progress Notes**: Timestamped progress update records
@@ -69,10 +79,13 @@ node web-viewer/server.js --data-dir ./mcp_data
 ```
 
 ### Features
+- **Goal Dashboard**: Strategic overview with progress tracking and success criteria
 - **Task Management**: List view, Kanban board, and dependency visualization
 - **Memory Browser**: Search and manage stored memories
+- **Three-Tier Visualization**: Goal -> Task -> Memory relationship mapping
 - **Real-time Updates**: WebSocket-based live data synchronization
 - **Visual Indicators**: Color-coded status badges and progress tracking
+- **Goal Progress**: Automatic progress calculation based on linked task completion
 
 ### Screenshots
 
@@ -100,31 +113,39 @@ node web-viewer/server.js --data-dir ./mcp_data
 ![Context Snapshots Interface](image/context_snapshots.png)   
 *Context snapshot management and browsing*
 
-## ⚠️ Breaking Changes in v2.0.0
+## ⚠️ Breaking Changes in v2.1.0
 
-**IMPORTANT**: Version 2.0.0 introduces breaking changes to improve LLM compatibility. The unified `memory_tool` and `task_tool` have been decomposed into 11 separate, operation-specific tools.
+**IMPORTANT**: Version 2.1.0 introduces the new Goal management system and expands the tool set to 17 operation-specific tools for comprehensive three-tier management.
 
-### What Changed
-- **Old**: `memory_tool` with `operation` parameter → **New**: 5 separate memory tools
-- **Old**: `task_tool` with `operation` parameter → **New**: 6 separate task tools
+### What's New in v2.1.0
+- **NEW**: Goal management system with 6 dedicated tools
+- **NEW**: Goal -> Task -> Memory three-tier architecture
+- **ENHANCED**: Context snapshots now support `related_goals`
+- **EXPANDED**: Total of 17 MCP tools (was 11 in v2.0.0)
+
+### Tool Mapping (Complete)
+| Category | v1.x Tool | v1.x Operation | v2.1 Tool |
+|----------|-----------|----------------|-----------|
+| **Memory** | `memory_tool` | `"create"` | `create_memory` |
+| **Memory** | `memory_tool` | `"read"` | `read_memory` |
+| **Memory** | `memory_tool` | `"search"` | `search_memories` |
+| **Memory** | `memory_tool` | `"list"` | `list_memories` |
+| **Memory** | `memory_tool` | `"delete"` | `delete_memory` |
+| **Task** | `task_tool` | `"create"` | `create_task` |
+| **Task** | `task_tool` | `"read"` | `read_task` |
+| **Task** | `task_tool` | `"update"` | `update_task` |
+| **Task** | `task_tool` | `"search"` | `search_tasks` |
+| **Task** | `task_tool` | `"list"` | `list_tasks` |
+| **Task** | `task_tool` | `"delete"` | `delete_task` |
+| **Goal** | *New in v2.1* | - | `create_goal` |
+| **Goal** | *New in v2.1* | - | `read_goal` |
+| **Goal** | *New in v2.1* | - | `update_goal` |
+| **Goal** | *New in v2.1* | - | `search_goals` |
+| **Goal** | *New in v2.1* | - | `list_goals` |
+| **Goal** | *New in v2.1* | - | `delete_goal` |
 
 ### Migration Required
 If upgrading from v1.x, you **must** update all tool calls in your MCP client configuration. See the [MCP Usage Guide](#mcp-usage-guide) below for new tool usage examples.
-
-### Tool Mapping
-| v1.x Tool | v1.x Operation | v2.0 Tool |
-|-----------|----------------|-----------|
-| `memory_tool` | `"create"` | `create_memory` |
-| `memory_tool` | `"read"` | `read_memory` |
-| `memory_tool` | `"search"` | `search_memories` |
-| `memory_tool` | `"list"` | `list_memories` |
-| `memory_tool` | `"delete"` | `delete_memory` |
-| `task_tool` | `"create"` | `create_task` |
-| `task_tool` | `"read"` | `read_task` |
-| `task_tool` | `"update"` | `update_task` |
-| `task_tool` | `"search"` | `search_tasks` |
-| `task_tool` | `"list"` | `list_tasks` |
-| `task_tool` | `"delete"` | `delete_task` |
 
 ## MCP Usage Guide
 
@@ -184,6 +205,82 @@ If upgrading from v1.x, you **must** update all tool calls in your MCP client co
 }
 ```
 
+### Goal Management
+
+#### Create Goal
+```json
+{
+  "tool": "create_goal",
+  "arguments": {
+    "title": "Launch MVP Product",
+    "description": "Complete and launch the minimum viable product for our new platform",
+    "priority": "high",
+    "tags": ["product", "launch", "mvp"],
+    "target_date": "2024-06-30T23:59:59Z",
+    "success_criteria": [
+      "Deploy to production environment",
+      "Complete user acceptance testing",
+      "Achieve 100 active beta users"
+    ],
+    "linked_tasks": ["task-1", "task-2"]
+  }
+}
+```
+
+#### Read Goal
+```json
+{
+  "tool": "read_goal",
+  "arguments": {
+    "id": "goal-1"
+  }
+}
+```
+
+#### Update Goal
+```json
+{
+  "tool": "update_goal",
+  "arguments": {
+    "id": "goal-1",
+    "status": "active",
+    "progress_note": "Development phase completed, moving to testing"
+  }
+}
+```
+
+#### Search Goals
+```json
+{
+  "tool": "search_goals",
+  "arguments": {
+    "query": "product launch",
+    "limit": 5
+  }
+}
+```
+
+#### List Goals
+```json
+{
+  "tool": "list_goals",
+  "arguments": {
+    "status": "active",
+    "priority": "high"
+  }
+}
+```
+
+#### Delete Goal
+```json
+{
+  "tool": "delete_goal",
+  "arguments": {
+    "id": "goal-1"
+  }
+}
+```
+
 ### Task Management
 
 #### Create Task
@@ -196,6 +293,7 @@ If upgrading from v1.x, you **must** update all tool calls in your MCP client co
     "priority": "high",
     "tags": ["development", "prototype"],
     "due_date": "2024-12-31T23:59:59Z",
+    "goal_id": "goal-1",
     "linked_memories": ["memory-id-1", "memory-id-2"],
     "depends_on": ["task-id-1", "task-id-2"]
   }
@@ -266,7 +364,8 @@ If upgrading from v1.x, you **must** update all tool calls in your MCP client co
     "summary": "Product development discussion context",
     "content": "Detailed conversation content...",
     "related_memories": ["memory-id-1"],
-    "related_tasks": ["task-id-1"]
+    "related_tasks": ["task-id-1"],
+    "related_goals": ["goal-id-1"]
   }
 }
 ```
@@ -284,19 +383,43 @@ If upgrading from v1.x, you **must** update all tool calls in your MCP client co
 ## Data Formats
 
 All data is stored as JSON files in the `mcp_data/` directory:
-- **Memories**: Content, summary, tags, timestamps, and optional context links
-- **Tasks**: Title, description, status, priority, dependencies, and linked memories  
-- **Context Snapshots**: Conversation summaries with related memories and tasks
+- **Goals**: Strategic objectives with success criteria, target dates, and linked tasks
+- **Tasks**: Implementation units with goal association, dependencies, and memory links
+- **Memories**: Knowledge base with content, tags, and contextual relationships
+- **Context Snapshots**: Conversation summaries with related goals, tasks, and memories
+
+### Directory Structure
+```
+mcp_data/
+├── goals/          # Goal JSON files (goal-1.json, goal-2.json, ...)
+├── tasks/          # Task JSON files (1.json, 2.json, ...)
+├── memories/       # Memory JSON files (uuid.json)
+└── contexts/       # Context snapshot JSON files (uuid.json)
+```
+
+### Three-Tier Architecture
+```
+Goal (Strategic Level)
+ ├── linked_tasks: ["task-1", "task-2"]
+ │
+Task (Implementation Level)
+ ├── goal_id: "goal-1" (optional)
+ ├── linked_memories: ["memory-1", "memory-2"]
+ │
+Memory (Knowledge Level)
+ └── Referenced by tasks for context and information
+```
 
 For detailed schema information, see the TypeScript interfaces in `src/types.ts`.
 
 ## Integration Recommendations
 
-### Integrating with MCP Client (v2.0)
-1. **Important**: Ensure you're using v2.0 compatible configuration
+### Integrating with MCP Client (v2.1)
+1. **Important**: Ensure you're using v2.1 compatible configuration
 2. Add this server to the MCP client configuration using the new tool names
 3. Use the stdio protocol for communication
-4. Manage memories and tasks via the 11 operation-specific tools
+4. Manage goals, tasks, and memories via the 17 operation-specific tools
+5. Leverage the three-tier Goal -> Task -> Memory architecture for structured planning
 
 ### MCP Client Configuration Example
 ```json
@@ -314,6 +437,41 @@ For detailed schema information, see the TypeScript interfaces in `src/types.ts`
 ```
 
 ### Version Compatibility Notes
-- **v2.0**: Uses 11 operation-specific tools (current)
+- **v2.1**: Uses 17 operation-specific tools with Goal management (current)
+- **v2.0**: Uses 11 operation-specific tools (deprecated)
 - **v1.x**: Used unified `memory_tool` and `task_tool` (deprecated)
 - **No backward compatibility** between major versions
+
+### Goal-Driven Workflow Example
+```json
+// 1. Create a strategic goal
+{
+  "tool": "create_goal",
+  "arguments": {
+    "title": "Improve Customer Satisfaction",
+    "description": "Increase customer satisfaction score to 95%",
+    "target_date": "2024-12-31T23:59:59Z",
+    "success_criteria": ["Achieve 95% CSAT score", "Reduce support tickets by 30%"]
+  }
+}
+
+// 2. Create implementation tasks linked to the goal
+{
+  "tool": "create_task",
+  "arguments": {
+    "title": "Implement customer feedback system",
+    "goal_id": "goal-1",
+    "priority": "high"
+  }
+}
+
+// 3. Track progress and update goal status
+{
+  "tool": "update_goal",
+  "arguments": {
+    "id": "goal-1",
+    "status": "active",
+    "progress_note": "Feedback system deployed, monitoring CSAT metrics"
+  }
+}
+```

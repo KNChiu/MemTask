@@ -11,6 +11,7 @@ export interface SystemConfig {
   memoriesPath: string;
   tasksPath: string;
   contextsPath: string;
+  goalsPath: string;
   cache: {
     memory: {
       maxSize: number;
@@ -21,6 +22,10 @@ export interface SystemConfig {
       ttlMs: number;
     };
     context: {
+      maxSize: number;
+      ttlMs: number;
+    };
+    goal: {
       maxSize: number;
       ttlMs: number;
     };
@@ -63,6 +68,7 @@ export const defaultConfig: SystemConfig = {
   memoriesPath: '',  // Will be set in getConfig
   tasksPath: '',     // Will be set in getConfig
   contextsPath: '',  // Will be set in getConfig
+  goalsPath: '',     // Will be set in getConfig
   cache: {
     memory: {
       maxSize: 1000,  // Cache up to 1000 memory items
@@ -74,6 +80,10 @@ export const defaultConfig: SystemConfig = {
     },
     context: {
       maxSize: 200,   // Cache up to 200 context snapshots
+      ttlMs: 3600000, // Cache expiration time: 1 hour
+    },
+    goal: {
+      maxSize: 300,   // Cache up to 300 goal items
       ttlMs: 3600000, // Cache expiration time: 1 hour
     },
   },
@@ -93,6 +103,7 @@ export function getConfig(): SystemConfig {
   config.memoriesPath = path.join(config.dataDir, 'memories');
   config.tasksPath = path.join(config.dataDir, 'tasks');
   config.contextsPath = path.join(config.dataDir, 'contexts');
+  config.goalsPath = path.join(config.dataDir, 'goals');
   
   // Override configuration from environment variables
   if (process.env.MCP_CACHE_MEMORY_MAX_SIZE) {
@@ -117,6 +128,14 @@ export function getConfig(): SystemConfig {
   
   if (process.env.MCP_CACHE_CONTEXT_TTL) {
     config.cache.context.ttlMs = parseInt(process.env.MCP_CACHE_CONTEXT_TTL, 10);
+  }
+  
+  if (process.env.MCP_CACHE_GOAL_MAX_SIZE) {
+    config.cache.goal.maxSize = parseInt(process.env.MCP_CACHE_GOAL_MAX_SIZE, 10);
+  }
+  
+  if (process.env.MCP_CACHE_GOAL_TTL) {
+    config.cache.goal.ttlMs = parseInt(process.env.MCP_CACHE_GOAL_TTL, 10);
   }
   
   if (process.env.MCP_LOG_LEVEL && ['debug', 'info', 'warn', 'error'].includes(process.env.MCP_LOG_LEVEL)) {

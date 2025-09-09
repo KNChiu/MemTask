@@ -68,9 +68,10 @@ export class ContextManager {
       const summary = args.summary.substring(0, 200).replace(/[<>]/g, '');
       const content = args.content.substring(0, 10000).replace(/[<>]/g, '');
       
-      // Validate related memories and tasks
+      // Validate related memories, tasks, and goals
       const related_memories = Array.isArray(args.related_memories) ? args.related_memories.map(id => String(id)) : [];
       const related_tasks = Array.isArray(args.related_tasks) ? args.related_tasks.map(id => String(id)) : [];
+      const related_goals = Array.isArray(args.related_goals) ? args.related_goals.map(id => String(id)) : [];
       
       const context: ContextSnapshot = {
         id: crypto.randomUUID(),
@@ -78,7 +79,8 @@ export class ContextManager {
         content,
         created_at: new Date().toISOString(),
         related_memories,
-        related_tasks
+        related_tasks,
+        related_goals
       };
       
       await this.save(context.id, context);

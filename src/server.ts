@@ -17,10 +17,12 @@ import { Logger } from './logger';
 import { MemoryManager } from './memory';
 import { TaskManager } from './task';
 import { ContextManager } from './context';
+import { GoalManager } from './goal';
 import { CacheServiceFactory } from './cache';
 import { 
   Memory, 
   Task, 
+  Goal,
   ContextSnapshot,
   AddMemoryArgs,
   SearchMemoryArgs,
@@ -32,6 +34,12 @@ import {
   ListTasksArgs,
   DeleteTaskArgs,
   SearchTaskArgs,
+  CreateGoalArgs,
+  UpdateGoalArgs,
+  GetGoalArgs,
+  ListGoalsArgs,
+  DeleteGoalArgs,
+  SearchGoalArgs,
   CreateContextSnapshotArgs
 } from './types';
 
@@ -47,6 +55,7 @@ export class MemoryContextServer {
   private memoryManager: MemoryManager;
   private taskManager: TaskManager;
   private contextManager: ContextManager;
+  private goalManager: GoalManager;
 
   /**
    * Constructor
@@ -78,6 +87,7 @@ export class MemoryContextServer {
     const memoryCacheService = cacheFactory.create<string, Memory>(this.config.cache.memory);
     const taskCacheService = cacheFactory.create<string, Task>(this.config.cache.task);
     const contextCacheService = cacheFactory.create<string, ContextSnapshot>(this.config.cache.context);
+    const goalCacheService = cacheFactory.create<string, Goal>(this.config.cache.goal);
     
     // Create managers with injected cache services
     this.memoryManager = new MemoryManager(
@@ -97,6 +107,12 @@ export class MemoryContextServer {
       contextCacheService,
       logger as unknown as Console
     );
+    
+    this.goalManager = new GoalManager(
+      this.config.goalsPath,
+      goalCacheService,
+      logger as unknown as Console
+    );
   }
 
   /**
@@ -109,6 +125,7 @@ export class MemoryContextServer {
     await this.memoryManager.initialize();
     await this.taskManager.initialize();
     await this.contextManager.initialize();
+    await this.goalManager.initialize();
     
     // Set up request handlers
     this.setupHandlers();
@@ -358,6 +375,89 @@ export class MemoryContextServer {
               required: ['id']
             }
           },
+          // Goal management tools
+          {
+            name: 'create_goal',
+            description: 'Create new goal',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                title: { type: 'string', description: 'Goal title' },
+                description: { type: 'string', description: 'Goal description' },
+                priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Priority (optional)', default: 'medium' },
+                tags: { type: 'array', items: { type: 'string' }, description: 'Tags (optional)' },
+                target_date: { type: 'string', description: 'Target date in ISO format (optional)' },
+                success_criteria: { type: 'array', items: { type: 'string' }, description: 'Success criteria (optional)' },
+                linked_tasks: { type: 'array', items: { type: 'string' }, description: 'Related task IDs (optional)' }
+              },
+              required: ['title', 'description']
+            }
+          },
+          {
+            name: 'read_goal',
+            description: 'Retrieve specific goal by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Goal ID' }
+              },
+              required: ['id']
+            }
+          },
+          {
+            name: 'update_goal',
+            description: 'Update existing goal',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Goal ID' },
+                status: { type: 'string', enum: ['planning', 'active', 'completed', 'on_hold', 'cancelled'], description: 'Goal status (optional)' },
+                title: { type: 'string', description: 'Goal title (optional)' },
+                description: { type: 'string', description: 'Goal description (optional)' },
+                priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Priority (optional)' },
+                target_date: { type: 'string', description: 'Target date in ISO format (optional)' },
+                progress_note: { type: 'string', description: 'Progress note (optional)' },
+                success_criteria: { type: 'array', items: { type: 'string' }, description: 'Success criteria (optional)' },
+                linked_tasks: { type: 'array', items: { type: 'string' }, description: 'Related task IDs (optional)' }
+              },
+              required: ['id']
+            }
+          },
+          {
+            name: 'search_goals',
+            description: 'Search goals by query',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                query: { type: 'string', description: 'Search query' },
+                limit: { type: 'number', description: 'Result limit', default: 10 }
+              },
+              required: ['query']
+            }
+          },
+          {
+            name: 'list_goals',
+            description: 'List goals with optional filtering',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                status: { type: 'string', enum: ['planning', 'active', 'completed', 'on_hold', 'cancelled'], description: 'Filter by status (optional)' },
+                priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Filter by priority (optional)' },
+                tags: { type: 'array', items: { type: 'string' }, description: 'Filter by tags (optional)' }
+              }
+            }
+          },
+          {
+            name: 'delete_goal',
+            description: 'Delete goal by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Goal ID' }
+              },
+              required: ['id']
+            }
+          },
           // Task management tools
           {
             name: 'create_task',
@@ -458,7 +558,8 @@ export class MemoryContextServer {
                 summary: { type: 'string', description: 'Context summary' },
                 content: { type: 'string', description: 'Context content' },
                 related_memories: { type: 'array', items: { type: 'string' }, description: 'Related memory IDs' },
-                related_tasks: { type: 'array', items: { type: 'string' }, description: 'Related task IDs' }
+                related_tasks: { type: 'array', items: { type: 'string' }, description: 'Related task IDs' },
+                related_goals: { type: 'array', items: { type: 'string' }, description: 'Related goal IDs' }
               },
               required: ['summary', 'content']
             }
@@ -574,6 +675,131 @@ export class MemoryContextServer {
                 {
                   type: 'text',
                   text: result ? `Memory ${deleteArgs.id} deleted successfully.` : `Memory ${deleteArgs.id} does not exist.`
+                }
+              ]
+            };
+          }
+
+          case 'create_goal': {
+            const goal = await this.goalManager.createGoal(args as CreateGoalArgs);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Goal ${goal.id} created successfully.\nTitle: ${goal.title}\nPriority: ${goal.priority}\nStatus: ${goal.status}\nNext: Use update_goal to set status to "active" when ready to start`
+                }
+              ]
+            };
+          }
+          
+          case 'read_goal': {
+            const { id } = args as { id: string };
+            const goal = await this.goalManager.getGoal({ id } as GetGoalArgs);
+            
+            if (!goal) {
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `Goal ${id} does not exist.`
+                  }
+                ]
+              };
+            }
+
+            const linkedTasksText = goal.linked_tasks.length > 0 ? 
+              `Linked tasks:\n${goal.linked_tasks.map(id => `  - ${id}`).join('\n')}` : 
+              'Linked tasks: None';
+            
+            const progressNotesText = goal.progress_notes.length > 0 ? 
+              `Progress notes:\n${goal.progress_notes.map((note, i) => `  ${i + 1}. ${note}`).join('\n')}` : 
+              'Progress notes: None';
+
+            const successCriteriaText = goal.success_criteria.length > 0 ? 
+              `Success criteria:\n${goal.success_criteria.map((criteria, i) => `  ${i + 1}. ${criteria}`).join('\n')}` : 
+              'Success criteria: None';
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Goal details:\nID: ${goal.id}\nTitle: ${goal.title}\nDescription: ${goal.description}\nStatus: ${goal.status}\nPriority: ${goal.priority}\nTags: ${goal.tags.join(', ')}\nCreated at: ${goal.created_at}\nLast updated: ${goal.updated_at}\nTarget date: ${goal.target_date || 'Not set'}\n${linkedTasksText}\n${progressNotesText}\n${successCriteriaText}`
+                }
+              ]
+            };
+          }
+          
+          case 'update_goal': {
+            const goal = await this.goalManager.updateGoal(args as UpdateGoalArgs);
+            
+            if (!goal) {
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `Goal ${(args as UpdateGoalArgs).id} does not exist.`
+                  }
+                ]
+              };
+            }
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Goal ${goal.id} updated successfully.\nCurrent status: ${goal.status}\nLast updated: ${goal.updated_at}`
+                }
+              ]
+            };
+          }
+          
+          case 'search_goals': {
+            const results = await this.goalManager.searchGoal(args as SearchGoalArgs);
+            
+            const truncateContent = (content: string, maxLength: number = 100) => {
+              return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+            };
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Found ${results.length} related goals:\n\n${results.map(r => 
+                    `ID: ${r.goal.id}\nTitle: ${r.goal.title}\nDescription: ${truncateContent(r.goal.description)}\nStatus: ${r.goal.status}\nPriority: ${r.goal.priority}\nTags: ${r.goal.tags.join(', ')}\nCreated at: ${r.goal.created_at}\nSimilarity: ${r.similarity.toFixed(2)}\n---`
+                  ).join('\n')}`
+                }
+              ]
+            };
+          }
+          
+          case 'list_goals': {
+            const goals = await this.goalManager.listGoals(args as ListGoalsArgs);
+
+            const truncateContent = (content: string, maxLength: number = 100) => {
+              return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+            };
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Total ${goals.length} goals:\n\n${goals.map(g => 
+                    `ID: ${g.id}\nTitle: ${g.title}\nDescription: ${truncateContent(g.description)}\nStatus: ${g.status}\nPriority: ${g.priority}\nTags: ${g.tags.join(', ')}\nCreated at: ${g.created_at}\n---`
+                  ).join('\n')}`
+                }
+              ]
+            };
+          }
+          
+          case 'delete_goal': {
+            const deleteArgs = args as DeleteGoalArgs;
+            const result = await this.goalManager.deleteGoal(deleteArgs);
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: result ? `Goal ${deleteArgs.id} deleted successfully.` : `Goal ${deleteArgs.id} does not exist.`
                 }
               ]
             };

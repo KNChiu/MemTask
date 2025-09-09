@@ -19,6 +19,24 @@ export interface Memory {
 }
 
 /**
+ * Goal Item Interface
+ */
+export interface Goal {
+  id: string;
+  title: string;
+  description: string;
+  status: 'planning' | 'active' | 'completed' | 'on_hold' | 'cancelled';
+  priority: 'low' | 'medium' | 'high';
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+  target_date?: string;
+  progress_notes: string[];
+  linked_tasks: string[];
+  success_criteria: string[];
+}
+
+/**
  * Task Item Interface
  */
 export interface Task {
@@ -31,6 +49,7 @@ export interface Task {
   created_at: string;
   updated_at: string;
   due_date?: string;
+  goal_id?: string;
   linked_memories: string[];
   progress_notes: string[];
   depends_on: string[];
@@ -46,6 +65,7 @@ export interface ContextSnapshot {
   created_at: string;
   related_memories: string[];
   related_tasks: string[];
+  related_goals?: string[];
 }
 
 /**
@@ -126,9 +146,54 @@ export type SearchTaskArgs = {
   limit?: number;
 };
 
+/**
+ * Goal Tool Parameter Types
+ */
+export type CreateGoalArgs = {
+  title: string;
+  description: string;
+  priority?: 'low' | 'medium' | 'high';
+  tags?: string[];
+  target_date?: string;
+  success_criteria?: string[];
+  linked_tasks?: string[];
+};
+
+export type UpdateGoalArgs = {
+  id: string;
+  status?: 'planning' | 'active' | 'completed' | 'on_hold' | 'cancelled';
+  title?: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high';
+  target_date?: string;
+  progress_note?: string;
+  success_criteria?: string[];
+  linked_tasks?: string[];
+};
+
+export type GetGoalArgs = {
+  id: string;
+};
+
+export type ListGoalsArgs = {
+  status?: 'planning' | 'active' | 'completed' | 'on_hold' | 'cancelled';
+  priority?: 'low' | 'medium' | 'high';
+  tags?: string[];
+};
+
+export type DeleteGoalArgs = {
+  id: string;
+};
+
+export type SearchGoalArgs = {
+  query: string;
+  limit?: number;
+};
+
 export type CreateContextSnapshotArgs = {
   summary: string;
   content: string;
   related_memories?: string[];
   related_tasks?: string[];
+  related_goals?: string[];
 };
