@@ -76,8 +76,7 @@ export class MemoryManager {
         metadata: {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          tags,
-          context_id: args.context_id
+          tags
         }
       };
       
@@ -218,21 +217,6 @@ export class MemoryManager {
     }
   }
 
-  /**
-   * Get memories by context ID
-   * @param contextId Context ID
-   */
-  async getMemoriesByContextId(contextId: string): Promise<Memory[]> {
-    try {
-      if (!contextId) throw new Error('Context ID is required');
-      
-      const memories = await this.list();
-      return memories.filter(memory => memory.metadata.context_id === contextId);
-    } catch (error) {
-      this.console.error('Failed to get memories by context ID:', error);
-      throw error;
-    }
-  }
 
   /**
    * Batch get memories

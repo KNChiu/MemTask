@@ -16,14 +16,12 @@ import { SystemConfig } from './config';
 import { Logger } from './logger';
 import { MemoryManager } from './memory';
 import { TaskManager } from './task';
-import { ContextManager } from './context';
 import { GoalManager } from './goal';
 import { CacheServiceFactory } from './cache';
 import { 
   Memory, 
   Task, 
   Goal,
-  ContextSnapshot,
   AddMemoryArgs,
   SearchMemoryArgs,
   ListMemoriesArgs,
@@ -39,8 +37,7 @@ import {
   GetGoalArgs,
   ListGoalsArgs,
   DeleteGoalArgs,
-  SearchGoalArgs,
-  CreateContextSnapshotArgs
+  SearchGoalArgs
 } from './types';
 
 /**
@@ -54,7 +51,6 @@ export class MemoryContextServer {
   // Managers
   private memoryManager: MemoryManager;
   private taskManager: TaskManager;
-  private contextManager: ContextManager;
   private goalManager: GoalManager;
 
   /**
@@ -86,7 +82,6 @@ export class MemoryContextServer {
     // Create cache services for each manager
     const memoryCacheService = cacheFactory.create<string, Memory>(this.config.cache.memory);
     const taskCacheService = cacheFactory.create<string, Task>(this.config.cache.task);
-    const contextCacheService = cacheFactory.create<string, ContextSnapshot>(this.config.cache.context);
     const goalCacheService = cacheFactory.create<string, Goal>(this.config.cache.goal);
     
     // Create managers with injected cache services
@@ -99,12 +94,6 @@ export class MemoryContextServer {
     this.taskManager = new TaskManager(
       this.config.tasksPath,
       taskCacheService,
-      logger as unknown as Console
-    );
-    
-    this.contextManager = new ContextManager(
-      this.config.contextsPath,
-      contextCacheService,
       logger as unknown as Console
     );
     
@@ -124,7 +113,6 @@ export class MemoryContextServer {
     // Initialize managers
     await this.memoryManager.initialize();
     await this.taskManager.initialize();
-    await this.contextManager.initialize();
     await this.goalManager.initialize();
     
     // Set up request handlers
@@ -144,7 +132,7 @@ export class MemoryContextServer {
       try {
         const memories = await this.memoryManager.listMemories();
         const tasks = await this.taskManager.listTasks();
-        const contexts = await this.contextManager.listContextSnapshots();
+        const goals = await this.goalManager.listGoals();
 
         const resources = [
           // // Memory resources
@@ -163,11 +151,11 @@ export class MemoryContextServer {
           //   mimeType: 'application/json'
           // })),
           
-          // // Context resources
-          // ...contexts.map(context => ({
-          //   uri: `context://${context.id}`,
-          //   name: `Context: ${context.summary}`,
-          //   description: `Context snapshot created at ${context.created_at}`,
+          // // Goal resources
+          // ...goals.map(goal => ({
+          //   uri: `goal://${goal.id}`,
+          //   name: `Goal: ${goal.title}`,
+          //   description: `${goal.status} goal, priority ${goal.priority}. Created at ${goal.created_at}`,
           //   mimeType: 'application/json'
           // })),
 
@@ -185,9 +173,9 @@ export class MemoryContextServer {
             mimeType: 'application/json'
           },
           {
-            uri: 'context://all',
-            name: 'All Contexts',
-            description: `All ${contexts.length} context snapshots in the system`,
+            uri: 'goal://all',
+            name: 'All Goals',
+            description: `All ${goals.length} goals in the system`,
             mimeType: 'application/json'
           }
         ];
@@ -271,29 +259,29 @@ export class MemoryContextServer {
             }
           }
 
-          case 'context': {
+          case 'goal': {
             if (resourceId === 'all') {
-              const contexts = await this.contextManager.listContextSnapshots();
+              const goals = await this.goalManager.listGoals();
               return {
                 contents: [
                   {
                     uri,
                     mimeType: 'application/json',
-                    text: JSON.stringify(contexts, null, 2)
+                    text: JSON.stringify(goals, null, 2)
                   }
                 ]
               };
             } else {
-              const context = await this.contextManager.getContextSnapshot(resourceId);
-              if (!context) {
-                throw new Error(`Context ${resourceId} does not exist`);
+              const goal = await this.goalManager.getGoal({ id: resourceId });
+              if (!goal) {
+                throw new Error(`Goal ${resourceId} does not exist`);
               }
               return {
                 contents: [
                   {
                     uri,
                     mimeType: 'application/json',
-                    text: JSON.stringify(context, null, 2)
+                    text: JSON.stringify(goal, null, 2)
                   }
                 ]
               };
@@ -537,31 +525,6 @@ export class MemoryContextServer {
                 id: { type: 'string', description: 'Task ID' }
               },
               required: ['id']
-            }
-          },
-          // Context management tools
-          {
-            name: 'create_context_snapshot',
-            description: 'Create context snapshot\n\nExample usage:\n' +
-              JSON.stringify({
-                "tool": "create_context_snapshot",
-                "arguments": {
-                  "summary": "Product development discussion context",
-                  "content": "Detailed conversation content...",
-                  "related_memories": ["memory-id-1"],
-                  "related_tasks": ["task-id-1"]
-                }
-              }, null, 2),
-            inputSchema: {
-              type: 'object',
-              properties: {
-                summary: { type: 'string', description: 'Context summary' },
-                content: { type: 'string', description: 'Context content' },
-                related_memories: { type: 'array', items: { type: 'string' }, description: 'Related memory IDs' },
-                related_tasks: { type: 'array', items: { type: 'string' }, description: 'Related task IDs' },
-                related_goals: { type: 'array', items: { type: 'string' }, description: 'Related goal IDs' }
-              },
-              required: ['summary', 'content']
             }
           },
           // System overview tool
@@ -978,24 +941,11 @@ export class MemoryContextServer {
             };
           }
 
-          case 'create_context_snapshot': {
-            const context = await this.contextManager.createContextSnapshot(args as CreateContextSnapshotArgs);
-            
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: `Context snapshot created successfully. ID: ${context.id}\nSummary: ${context.summary}`
-                }
-              ]
-            };
-          }
-
           case 'overview': {
             // Reuse the logic from "overview://summary" resource
             const memories = await this.memoryManager.listMemories();
             const tasks = await this.taskManager.listTasks();
-            const contexts = await this.contextManager.listContextSnapshots();
+            const goals = await this.goalManager.listGoals();
         
             const truncateText = (text: string, maxLength: number = 80) => {
                 return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
@@ -1027,47 +977,100 @@ export class MemoryContextServer {
             // Cache Statistics
             const memoryCache = this.memoryManager.getCacheStats();
             const taskCache = this.taskManager.getCacheStats();
-            const contextCache = this.contextManager.getCacheStats();
-            const totalHits = memoryCache.hits + taskCache.hits + contextCache.hits;
-            const totalMisses = memoryCache.misses + taskCache.misses + contextCache.misses;
+            const goalCache = this.goalManager.getCacheStats();
+            const totalHits = memoryCache.hits + taskCache.hits + goalCache.hits;
+            const totalMisses = memoryCache.misses + taskCache.misses + goalCache.misses;
             const overallHitRate = totalHits + totalMisses > 0 ? (totalHits / (totalHits + totalMisses) * 100).toFixed(1) : '0.0';
         
-            // Generate system overview
-            const overview = `# Memory Context System Overview
+            // Goal-Task relationship processing functions
+            const buildGoalTaskMap = (goals: Goal[], tasks: Task[]) => {
+                const goalTaskMap = new Map<string, Task[]>();
+                
+                // Initialize map with all goals
+                goals.forEach(goal => {
+                    goalTaskMap.set(goal.id, []);
+                });
+                
+                // Add tasks to their respective goals
+                tasks.forEach(task => {
+                    if (task.goal_id && goalTaskMap.has(task.goal_id)) {
+                        goalTaskMap.get(task.goal_id)!.push(task);
+                    }
+                });
+                
+                return goalTaskMap;
+            };
+            
+            const findOrphanedTasks = (tasks: Task[]) => {
+                return tasks.filter(task => !task.goal_id);
+            };
+            
+            const calculateGoalProgress = (goal: Goal, tasks: Task[]) => {
+                const goalTasks = tasks.filter(task => task.goal_id === goal.id);
+                const completedTasks = goalTasks.filter(task => 
+                    task.status === 'completed' || task.status === 'cancelled'
+                );
+                return { completed: completedTasks.length, total: goalTasks.length };
+            };
+            
+            const getTaskStatusText = (task: Task, executableTasks: Task[]) => {
+                switch (task.status) {
+                    case 'completed': return 'DONE';
+                    case 'in_progress': return 'ACTIVE';
+                    case 'cancelled': return 'CANCELLED';
+                    case 'todo':
+                        return executableTasks.some(et => et.id === task.id) ? 'READY' : 'WAITING';
+                    default: return task.status.toUpperCase();
+                }
+            };
+        
+            // Build Goal-Task relationships
+            const goalTaskMap = buildGoalTaskMap(goals, tasks);
+            const orphanedTasks = findOrphanedTasks(tasks);
+        
+            // Generate Goal-Task hierarchy overview
+            const overview = `# Goal-Task System Overview
+
+## Goal Progress Dashboard
+
+${goals.length === 0 ? '*No goals found*' : 
+    goals.filter(g => g.status === 'active' || g.status === 'planning').slice(0, 5).map(goal => {
+        const progress = calculateGoalProgress(goal, tasks);
+        const goalTasks = goalTaskMap.get(goal.id) || [];
+        
+        let goalSection = `### Goal-${goal.id}: (${progress.completed}/${progress.total}) - "${truncateText(goal.title)}"`;
+        goalSection += `\n**Status:** ${goal.status.toUpperCase()} | **Priority:** ${goal.priority.toUpperCase()}`;
+        
+        if (goalTasks.length === 0) {
+            goalSection += `\n└── *No tasks assigned to this goal*`;
+        } else {
+            goalTasks.forEach((task, index) => {
+                const isLast = index === goalTasks.length - 1;
+                const prefix = isLast ? '└──' : '├──';
+                const statusText = getTaskStatusText(task, executableTasks);
+                const dependsText = task.depends_on && task.depends_on.length > 0 ? ` (depends: ${task.depends_on.join(', ')})` : '';
+                
+                goalSection += `\n${prefix} Task-${task.id}: ${statusText} - "${truncateText(task.title, 50)}"${dependsText}`;
+            });
+        }
+        
+        return goalSection;
+    }).join('\n\n')}
+
+${orphanedTasks.length > 0 ? `
+## Orphaned Tasks
+
+${orphanedTasks.map(task => {
+    const statusText = getTaskStatusText(task, executableTasks);
+    const dependsText = task.depends_on && task.depends_on.length > 0 ? ` (depends: ${task.depends_on.join(', ')})` : '';
+    return `Task-${task.id}: ${statusText} - "${truncateText(task.title)}"${dependsText} (No Goal assigned)`;
+}).join('\n')}` : ''}
 
 ## Recent Memories
 
 ${memories.length === 0 ? '*No memories found*' : 
-    memories.slice(0, 5).map((m, i) => 
-        `### ${i + 1}. ${truncateText(m.summary)}
-**Tags:** ${m.metadata.tags.join(', ') || 'None'}  
-**Created:** ${m.metadata.created_at}  
-**ID:** \`${m.id}\`
-`
-    ).join('\n')}
-
-## Tasks (In Sequential Order)
-
-${tasksInOrder.length === 0 ? '*No tasks found*' : 
-    tasksInOrder.slice(0, 10).map((t) => {
-        const isExecutable = executableTasks.some(et => et.id === t.id);
-        const dependsText = t.depends_on && t.depends_on.length > 0 ? ` (depends on: ${t.depends_on.join(', ')})` : '';
-        const statusIcon = t.status === 'completed' ? 'DONE' : 
-                          t.status === 'in_progress' ? 'ACTIVE' : 
-                          t.status === 'cancelled' ? 'CANCELLED' :
-                          isExecutable ? 'READY' : 'WAITING';
-        
-        return `### Task ${t.id}: ${truncateText(t.title)}
-**Status:** ${statusIcon} | **Priority:** ${t.priority.toUpperCase()}${dependsText}`;
-    }).join('\n\n')}
-
-## Recent Context Snapshots
-
-${contexts.length === 0 ? '*No context snapshots found*' :
-    contexts.slice(0, 3).map((c, i) => 
-        `### ${i + 1}. ${truncateText(c.summary)}
-**Created:** ${c.created_at}
-`
+    memories.slice(0, 3).map((m, i) => 
+        `${i + 1}. ${truncateText(m.summary)} (${m.id}) - ${m.metadata.created_at.split('T')[0]}`
     ).join('\n')}
 
 ## Task Status Distribution
@@ -1083,22 +1086,49 @@ ${contexts.length === 0 ? '*No context snapshots found*' :
 ## System Health Summary
 
 **Memory System:** ${memories.length > 0 ? 'Active' : 'Empty'}  
-**Task Management:** ${tasks.length > 0 ? `${activeTasks.length} active out of ${tasks.length} total` : 'No tasks'}  
-**Context Tracking:** ${contexts.length > 0 ? 'Active' : 'No snapshots'}  
+**Goal Management:** ${goals.length > 0 ? `${goals.filter(g => g.status === 'active').length} active goals out of ${goals.length} total` : 'No goals'}  
+**Task Management:** ${tasks.length > 0 ? `${activeTasks.length} active tasks out of ${tasks.length} total` : 'No tasks'}  
+**Orphaned Tasks:** ${orphanedTasks.length > 0 ? `${orphanedTasks.length} tasks without goals` : 'All tasks assigned'}  
 **Cache Efficiency:** ${parseFloat(overallHitRate) > 80 ? 'Excellent' : parseFloat(overallHitRate) > 60 ? 'Good' : parseFloat(overallHitRate) > 40 ? 'Fair' : 'Poor'}
 
 ## Next Actions Recommended
 
-${tasks.length === 0 ? 
-    '**Suggestion:** Create your first task using task_tool with operation "create"' :
-    executableTasks.length === 0 ? 
-        (activeTasks.length === 0 ? 
-            '**All tasks completed!** Consider creating new tasks or reviewing completed work.' :
-            '**No executable tasks found.** Check task dependencies or update task status.') :
-        `**Ready to execute:** ${executableTasks.length} task(s) available\n${executableTasks.slice(0, 3).map(t => 
-            `- Task ${t.id}: ${truncateText(t.title, 50)}`
-        ).join('\n')}\n\n**Suggestion:** Use task_tool with operation "update" to start working on these tasks.`
-}
+${(() => {
+    if (goals.length === 0) {
+        return '**Suggestion:** Start by creating your first goal using create_goal tool';
+    }
+    
+    if (tasks.length === 0) {
+        return '**Suggestion:** Create tasks for your goals using create_task tool with goal_id parameter';
+    }
+    
+    if (orphanedTasks.length > 0) {
+        return `**Priority:** Assign ${orphanedTasks.length} orphaned tasks to goals using update_task tool`;
+    }
+    
+    if (executableTasks.length === 0) {
+        return activeTasks.length === 0 ? 
+            '**All tasks completed!** Consider creating new tasks or setting up new goals.' :
+            '**No executable tasks found.** Check task dependencies or update task status.';
+    }
+    
+    const activeGoalsWithTasks = goals.filter(g => g.status === 'active' && (goalTaskMap.get(g.id)?.length || 0) > 0);
+    if (activeGoalsWithTasks.length > 0) {
+        const recommendedGoal = activeGoalsWithTasks[0];
+        const goalTasks = goalTaskMap.get(recommendedGoal.id) || [];
+        const executableGoalTasks = goalTasks.filter(t => executableTasks.some(et => et.id === t.id));
+        
+        if (executableGoalTasks.length > 0) {
+            return `**Focus on Goal-${recommendedGoal.id}:** "${truncateText(recommendedGoal.title, 40)}"\nReady tasks:\n${executableGoalTasks.slice(0, 3).map(t => 
+                `- Task-${t.id}: ${truncateText(t.title, 50)}`
+            ).join('\n')}`;
+        }
+    }
+    
+    return `**Ready to execute:** ${executableTasks.length} task(s) available\n${executableTasks.slice(0, 3).map(t => 
+        `- Task-${t.id}: ${truncateText(t.title, 50)}`
+    ).join('\n')}`;
+})()}
 
 ---
 *Report generated at: ${new Date()}*

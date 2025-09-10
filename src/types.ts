@@ -14,7 +14,6 @@ export interface Memory {
     created_at: string;
     updated_at: string;
     tags: string[];
-    context_id?: string;
   };
 }
 
@@ -55,18 +54,6 @@ export interface Task {
   depends_on: string[];
 }
 
-/**
- * Context Snapshot Interface
- */
-export interface ContextSnapshot {
-  id: string;
-  summary: string;
-  content: string;
-  created_at: string;
-  related_memories: string[];
-  related_tasks: string[];
-  related_goals?: string[];
-}
 
 /**
  * Cache Statistics Interface
@@ -91,7 +78,6 @@ export type AddMemoryArgs = {
   content: string;
   summary: string;
   tags?: string[];
-  context_id?: string;
 };
 
 export type SearchMemoryArgs = {
@@ -190,10 +176,3 @@ export type SearchGoalArgs = {
   limit?: number;
 };
 
-export type CreateContextSnapshotArgs = {
-  summary: string;
-  content: string;
-  related_memories?: string[];
-  related_tasks?: string[];
-  related_goals?: string[];
-};

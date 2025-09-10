@@ -10,7 +10,6 @@ export interface SystemConfig {
   dataDir: string;
   memoriesPath: string;
   tasksPath: string;
-  contextsPath: string;
   goalsPath: string;
   cache: {
     memory: {
@@ -18,10 +17,6 @@ export interface SystemConfig {
       ttlMs: number;
     };
     task: {
-      maxSize: number;
-      ttlMs: number;
-    };
-    context: {
       maxSize: number;
       ttlMs: number;
     };
@@ -67,7 +62,6 @@ export const defaultConfig: SystemConfig = {
   dataDir: parseDataDirFromArgs() || process.env.MCP_DATA_DIR || path.join(process.cwd(), 'mcp_data'),
   memoriesPath: '',  // Will be set in getConfig
   tasksPath: '',     // Will be set in getConfig
-  contextsPath: '',  // Will be set in getConfig
   goalsPath: '',     // Will be set in getConfig
   cache: {
     memory: {
@@ -76,10 +70,6 @@ export const defaultConfig: SystemConfig = {
     },
     task: {
       maxSize: 500,   // Cache up to 500 task items
-      ttlMs: 3600000, // Cache expiration time: 1 hour
-    },
-    context: {
-      maxSize: 200,   // Cache up to 200 context snapshots
       ttlMs: 3600000, // Cache expiration time: 1 hour
     },
     goal: {
@@ -102,7 +92,6 @@ export function getConfig(): SystemConfig {
   // Set paths
   config.memoriesPath = path.join(config.dataDir, 'memories');
   config.tasksPath = path.join(config.dataDir, 'tasks');
-  config.contextsPath = path.join(config.dataDir, 'contexts');
   config.goalsPath = path.join(config.dataDir, 'goals');
   
   // Override configuration from environment variables
@@ -120,14 +109,6 @@ export function getConfig(): SystemConfig {
   
   if (process.env.MCP_CACHE_TASK_TTL) {
     config.cache.task.ttlMs = parseInt(process.env.MCP_CACHE_TASK_TTL, 10);
-  }
-  
-  if (process.env.MCP_CACHE_CONTEXT_MAX_SIZE) {
-    config.cache.context.maxSize = parseInt(process.env.MCP_CACHE_CONTEXT_MAX_SIZE, 10);
-  }
-  
-  if (process.env.MCP_CACHE_CONTEXT_TTL) {
-    config.cache.context.ttlMs = parseInt(process.env.MCP_CACHE_CONTEXT_TTL, 10);
   }
   
   if (process.env.MCP_CACHE_GOAL_MAX_SIZE) {
