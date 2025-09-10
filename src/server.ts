@@ -455,13 +455,14 @@ export class MemoryContextServer {
               properties: {
                 title: { type: 'string', description: 'Task title' },
                 description: { type: 'string', description: 'Task description' },
+                goal_id: { type: 'string', description: 'Goal ID to associate this task with (required)' },
                 priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Priority (optional)', default: 'medium' },
                 tags: { type: 'array', items: { type: 'string' }, description: 'Tags (optional)' },
                 due_date: { type: 'string', description: 'Due date in ISO format (optional)' },
                 linked_memories: { type: 'array', items: { type: 'string' }, description: 'Related memory IDs (optional)' },
                 depends_on: { type: 'array', items: { type: 'string' }, description: 'Task IDs this task depends on (optional)' }
               },
-              required: ['title', 'description']
+              required: ['title', 'description', 'goal_id']
             }
           },
           {
@@ -486,6 +487,7 @@ export class MemoryContextServer {
                 title: { type: 'string', description: 'Task title (optional)' },
                 description: { type: 'string', description: 'Task description (optional)' },
                 priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Priority (optional)' },
+                goal_id: { type: 'string', description: 'Goal ID to associate this task with (optional)' },
                 progress_note: { type: 'string', description: 'Progress note (optional)' },
                 depends_on: { type: 'array', items: { type: 'string' }, description: 'Task IDs this task depends on (optional)' }
               },
@@ -512,6 +514,7 @@ export class MemoryContextServer {
               properties: {
                 status: { type: 'string', enum: ['todo', 'in_progress', 'completed', 'cancelled'], description: 'Filter by status (optional)' },
                 priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Filter by priority (optional)' },
+                goal_id: { type: 'string', description: 'Filter by goal ID (optional)' },
                 tags: { type: 'array', items: { type: 'string' }, description: 'Filter by tags (optional)' }
               }
             }
@@ -756,20 +759,67 @@ export class MemoryContextServer {
           
           case 'delete_goal': {
             const deleteArgs = args as DeleteGoalArgs;
+            
+            // First, check if goal exists
+            const goalExists = await this.goalManager.getGoal({ id: deleteArgs.id });
+            if (!goalExists) {
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `Goal ${deleteArgs.id} does not exist.`
+                  }
+                ]
+              };
+            }
+            
+            // Find all tasks associated with this goal
+            const allTasks = await this.taskManager.listTasks();
+            const relatedTasks = allTasks.filter(task => task.goal_id === deleteArgs.id);
+            
+            // Clear goal_id from related tasks (make them orphaned)
+            for (const task of relatedTasks) {
+              await this.taskManager.updateTask({
+                id: task.id,
+                goal_id: '' // Clear the goal_id
+              });
+            }
+            
+            // Now delete the goal
             const result = await this.goalManager.deleteGoal(deleteArgs);
+            
+            const orphanedMessage = relatedTasks.length > 0 ? 
+              ` ${relatedTasks.length} related tasks have been orphaned.` : '';
             
             return {
               content: [
                 {
                   type: 'text',
-                  text: result ? `Goal ${deleteArgs.id} deleted successfully.` : `Goal ${deleteArgs.id} does not exist.`
+                  text: `Goal ${deleteArgs.id} deleted successfully.${orphanedMessage}`
                 }
               ]
             };
           }
 
           case 'create_task': {
-            const task = await this.taskManager.createTask(args as CreateTaskArgs);
+            const createArgs = args as CreateTaskArgs;
+            
+            // Validate goal_id exists
+            if (createArgs.goal_id) {
+              const goalExists = await this.goalManager.getGoal({ id: createArgs.goal_id });
+              if (!goalExists) {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: `Error: Goal ${createArgs.goal_id} does not exist. Please create the goal first or use an existing goal ID.`
+                    }
+                  ]
+                };
+              }
+            }
+            
+            const task = await this.taskManager.createTask(createArgs);
             const executableTasks = await this.taskManager.getExecutableTasks();
             const isExecutable = executableTasks.some(t => t.id === task.id);
             const dependsText = task.depends_on && task.depends_on.length > 0 ? 
@@ -828,6 +878,22 @@ export class MemoryContextServer {
           
           case 'update_task': {
             const updateArgs = args as UpdateTaskArgs;
+            
+            // Validate goal_id exists if being updated
+            if (updateArgs.goal_id !== undefined && updateArgs.goal_id !== null && updateArgs.goal_id !== '') {
+              const goalExists = await this.goalManager.getGoal({ id: updateArgs.goal_id });
+              if (!goalExists) {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: `Error: Goal ${updateArgs.goal_id} does not exist. Please create the goal first or use an existing goal ID.`
+                    }
+                  ]
+                };
+              }
+            }
+            
             const task = await this.taskManager.updateTask(updateArgs);
             
             if (!task) {
@@ -1020,7 +1086,6 @@ export class MemoryContextServer {
                     case 'cancelled': return 'CANCELLED';
                     case 'todo':
                         return executableTasks.some(et => et.id === task.id) ? 'READY' : 'WAITING';
-                    default: return task.status.toUpperCase();
                 }
             };
         

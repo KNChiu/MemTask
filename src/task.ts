@@ -87,10 +87,12 @@ export class TaskManager {
       // Basic validation
       if (!args.title) throw new Error('Title is required');
       if (!args.description) throw new Error('Description is required');
+      if (!args.goal_id) throw new Error('Goal ID is required');
       
       // Simplified parameter handling
       const title = args.title.substring(0, 100).replace(/[<>]/g, '');
       const description = args.description.substring(0, 1000).replace(/[<>]/g, '');
+      const goal_id = args.goal_id;
       const tags = Array.isArray(args.tags) ? args.tags.map(tag => String(tag).substring(0, 50).replace(/[<>]/g, '')) : [];
       
       // Validate priority
@@ -140,6 +142,7 @@ export class TaskManager {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         due_date,
+        goal_id,
         linked_memories,
         progress_notes: [],
         depends_on
@@ -186,6 +189,10 @@ export class TaskManager {
           throw new Error('Priority must be one of: low, medium, or high');
         }
         task.priority = args.priority as 'low' | 'medium' | 'high';
+      }
+      
+      if (args.goal_id !== undefined) {
+        task.goal_id = args.goal_id || undefined;
       }
       
       if (args.progress_note) {
@@ -252,6 +259,10 @@ export class TaskManager {
         tasks = tasks.filter(task => 
           args.tags!.some(tag => task.tags.includes(tag))
         );
+      }
+      
+      if (args?.goal_id) {
+        tasks = tasks.filter(task => task.goal_id === args.goal_id);
       }
       
       // Sort by update time (newest first)

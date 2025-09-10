@@ -96,6 +96,7 @@ export type DeleteMemoryArgs = {
 export type CreateTaskArgs = {
   title: string;
   description: string;
+  goal_id: string;
   priority?: 'low' | 'medium' | 'high';
   tags?: string[];
   due_date?: string;
@@ -109,6 +110,7 @@ export type UpdateTaskArgs = {
   title?: string;
   description?: string;
   priority?: 'low' | 'medium' | 'high';
+  goal_id?: string;
   progress_note?: string;
   depends_on?: string[];
 };
@@ -120,6 +122,7 @@ export type GetTaskStatusArgs = {
 export type ListTasksArgs = {
   status?: 'todo' | 'in_progress' | 'completed' | 'cancelled';
   priority?: 'low' | 'medium' | 'high';
+  goal_id?: string;
   tags?: string[];
 };
 
