@@ -415,10 +415,12 @@ function renderDependenciesTable(tasks) {
     }
   });
 
-  // 建立任務ID到狀態的映射
+  // 建立任務ID到狀態和目標的映射
   const taskStatusMap = {};
+  const taskGoalMap = {};
   sortedTasks.forEach(task => {
     taskStatusMap[task.id] = task.status;
+    taskGoalMap[task.id] = task.goal_id;
   });
 
   // 創建狀態徽章HTML的輔助函數
@@ -433,6 +435,7 @@ function renderDependenciesTable(tasks) {
       <table class="dependencies-table">
         <thead>
           <tr>
+            <th>Goal ID</th>
             <th>Task ID</th>
             <th>Title</th>
             <th>Status</th>
@@ -492,6 +495,7 @@ function renderDependenciesTable(tasks) {
 
     html += `
       <tr class="dependency-row clickable" data-id="${task.id}" data-type="tasks">
+        <td class="goal-id">${task.goal_id || '-'}</td>
         <td class="task-id">${task.id}</td>
         <td class="task-title">${task.title}</td>
         <td class="task-status status-${task.status}">${task.status}</td>
@@ -501,7 +505,7 @@ function renderDependenciesTable(tasks) {
         <td class="task-actions">${actionButtons}</td>
       </tr>
       <tr class="dependency-details" id="details-deps-tasks-${task.id}" style="display: none;">
-        <td colspan="7">
+        <td colspan="8">
           <div class="details-container content-area"></div>
         </td>
       </tr>
@@ -685,6 +689,7 @@ function renderDetails(container, data, type) {
             <strong>Description:</strong>
             <p>${data.description || 'No description available'}</p>
           </div>
+          ${data.goal_id ? `<div class="detail-section"><strong style="display: inline;">Goal:</strong> ${data.goal_id}</div>` : '<div class="detail-section"><strong style="display: inline;">Goal:</strong> <span style="color: #888;">No goal assigned</span></div>'}
           ${data.depends_on && data.depends_on.length ? `<div class="detail-section"><strong style="display: inline;">Depends On:</strong> ${data.depends_on.join(', ')}</div>` : ''}
           <div class="detail-section">
             <strong>Created:</strong> ${formatDate(data.created_at)}
