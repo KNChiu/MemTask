@@ -207,18 +207,35 @@ section:not(.widget) {
     margin-bottom: 5px;
 }
 
-/* Context Styles */
-.context {
+/* Goal Styles */
+.goal {
     padding: 12px 15px;
     margin-bottom: 10px;
     background: #f8f9fa;
     border-radius: 4px;
-    border-left: 4px solid #1abc9c;
+    border-left: 4px solid #e67e22;
 }
 
-.context-summary {
+.goal-title {
     font-weight: bold;
     margin-bottom: 5px;
+}
+
+.goal-meta {
+    display: flex;
+    font-size: 0.85rem;
+    color: #7f8c8d;
+}
+
+.goal-status {
+    margin-right: 15px;
+}
+
+.goal-priority {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
 }
 
 /* Clickable Elements */
@@ -248,7 +265,7 @@ section:not(.widget) {
 
 .task .content-area,
 .memory .content-area,
-.context .content-area {
+.goal .content-area {
     cursor: auto;
     user-select: text;
 }
@@ -343,12 +360,12 @@ section:not(.widget) {
         min-width: 100%;
     }
     
-    /* Tasks and Context Snapshots side by side */
-    .widgets-row #tasks-view {
+    /* Goals and Tasks side by side */
+    .widgets-row #goals-view {
         order: 1;
     }
     
-    .widgets-row #context-view {
+    .widgets-row #tasks-view {
         order: 2;
     }
     

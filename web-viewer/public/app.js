@@ -7,7 +7,7 @@ const ENDPOINTS = {
   OVERVIEW: '/api/overview',
   TASKS: '/api/tasks',
   MEMORIES: '/api/memories',
-  CONTEXTS: '/api/contexts'
+  GOALS: '/api/goals'
 };
 
 // WebSocket connection
@@ -23,7 +23,7 @@ const statsContainer = document.getElementById('stats');
 const kanbanProgressContainer = document.getElementById('kanban-progress');
 const tasksContainer = document.getElementById('tasks-container');
 const memoriesContainer = document.getElementById('memories-container');
-const contextContainer = document.getElementById('context-container');
+const goalsContainer = document.getElementById('goals-container');
 
 // View elements
 const listViewBtn = document.getElementById('list-view-btn');
@@ -79,8 +79,8 @@ function renderOverview(data) {
       <div class="stat-label">Memories</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">${data.contextsCount}</div>
-      <div class="stat-label">Contexts</div>
+      <div class="stat-value">${data.goalsCount}</div>
+      <div class="stat-label">Goals</div>
     </div>
     <div class="stat-card">
       <div class="stat-value">${data.activeTasks}</div>
@@ -556,27 +556,30 @@ function renderMemories(memories) {
   addClickListeners();
 }
 
-// Render contexts
-function renderContexts(contexts) {
-  if (!contexts || !contexts.length) {
-    contextContainer.innerHTML = '<p>No context snapshots found</p>';
+// Render goals
+function renderGoals(goals) {
+  if (!goals || !goals.length) {
+    goalsContainer.innerHTML = '<p>No goals found</p>';
     return;
   }
 
   let html = '';
-  contexts.forEach(context => {
+  goals.forEach(goal => {
     html += `
-      <div class="context clickable" data-id="${context.id}" data-type="contexts">
+      <div class="goal clickable" data-id="${goal.id}" data-type="goals">
         <div class="card-header">
-          <div class="context-summary">${context.summary}</div>
-          <div>${formatDate(context.created_at)}</div>
+          <div class="goal-title">${goal.title}</div>
+          <div class="goal-meta">
+            <span class="goal-status">${goal.status}</span>
+            <span class="goal-priority priority-${goal.priority}">${goal.priority}</span>
+          </div>
         </div>
-        <div class="details-container content-area" id="details-contexts-${context.id}" style="display: none;"></div>
+        <div class="details-container content-area" id="details-goals-${goal.id}" style="display: none;"></div>
       </div>
     `;
   });
   
-  contextContainer.innerHTML = html;
+  goalsContainer.innerHTML = html;
   addClickListeners();
 }
 
@@ -729,23 +732,43 @@ function renderDetails(container, data, type) {
             <strong>Last Updated:</strong> ${formatDate(data.metadata.updated_at)}
           </div>
           ${data.tags && data.tags.length ? `<div class="detail-section"><strong>Tags:</strong> ${data.tags.join(', ')}</div>` : ''}
-          ${data.context_id ? `<div class="detail-section"><strong>Context ID:</strong> ${data.context_id}</div>` : ''}
         </div>
       `;
       break;
-    case 'contexts':
+    case 'goals':
       html = `
         <div class="details">
           ${idHtml}
           <div class="detail-section">
-            <strong>Content:</strong>
-            <p class="scrollable-content">${data.content || 'No content available'}</p>
+            <strong>Description:</strong>
+            <p>${data.description || 'No description available'}</p>
           </div>
           <div class="detail-section">
             <strong>Created:</strong> ${formatDate(data.created_at)}
           </div>
-          ${data.related_memories && data.related_memories.length ? `<div class="detail-section"><strong>Related Memories:</strong><ul>${data.related_memories.map(id => `<li>${id}</li>`).join('')}</ul></div>` : ''}
-          ${data.related_tasks && data.related_tasks.length ? `<div class="detail-section"><strong>Related Tasks:</strong><ul>${data.related_tasks.map(id => `<li>${id}</li>`).join('')}</ul></div>` : ''}
+          <div class="detail-section">
+            <strong>Last Updated:</strong> ${formatDate(data.updated_at)}
+          </div>
+          ${data.target_date ? `<div class="detail-section"><strong>Target Date:</strong> ${formatDate(data.target_date)}</div>` : ''}
+          ${data.tags && data.tags.length ? `<div class="detail-section"><strong>Tags:</strong> ${data.tags.join(', ')}</div>` : ''}
+          ${data.linked_tasks && data.linked_tasks.length ? `<div class="detail-section"><strong>Linked Tasks:</strong> ${data.linked_tasks.join(', ')}</div>` : ''}
+          ${data.success_criteria && data.success_criteria.length ? `<div class="detail-section"><strong>Success Criteria:</strong><ul>${data.success_criteria.map(criteria => `<li>${criteria}</li>`).join('')}</ul></div>` : ''}
+          ${data.progress_notes && data.progress_notes.length ? 
+            `<div class="detail-section"><strong>Progress Notes:</strong><ul>
+              ${data.progress_notes.map(noteString => {
+                const isoPattern = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z): (.*)$/;
+                const match = noteString.match(isoPattern);
+                
+                if (match) {
+                  const timestamp = match[1];
+                  const noteText = match[2];
+                  return `<li>(${formatDate(timestamp)}) ${noteText}</li>`;
+                } else {
+                  return `<li>${noteString}</li>`;
+                }
+              }).join('')}
+            </ul></div>` 
+          : ''}
         </div>
       `;
       break;
@@ -815,8 +838,8 @@ function handleWebSocketMessage(message) {
     case 'tasks':
       refreshTasks();
       break;
-    case 'contexts':
-      refreshContexts();
+    case 'goals':
+      refreshGoals();
       break;
     case 'refresh':
     default:
@@ -853,10 +876,10 @@ async function refreshTasks() {
   refreshOverview();
 }
 
-async function refreshContexts() {
-  const contexts = await fetchData(ENDPOINTS.CONTEXTS);
-  if (contexts) {
-    renderContexts(contexts);
+async function refreshGoals() {
+  const goals = await fetchData(ENDPOINTS.GOALS);
+  if (goals) {
+    renderGoals(goals);
   }
   // Also update overview stats
   refreshOverview();
@@ -953,18 +976,18 @@ function showUpdateNotification(type, timestamp) {
 // Enhanced initialization
 async function initViewer() {
   // Load all data in parallel first
-  const [overview, tasks, memories, contexts] = await Promise.all([
+  const [overview, tasks, memories, goals] = await Promise.all([
     fetchData(ENDPOINTS.OVERVIEW),
     fetchData(ENDPOINTS.TASKS),
     fetchData(ENDPOINTS.MEMORIES),
-    fetchData(ENDPOINTS.CONTEXTS)
+    fetchData(ENDPOINTS.GOALS)
   ]);
 
   // Render all sections
   renderOverview(overview);
   renderMemories(memories);
   renderTasks(tasks);
-  renderContexts(contexts);
+  renderGoals(goals);
   
   // Initialize view toggle after data is loaded
   initializeViewToggle(tasks);

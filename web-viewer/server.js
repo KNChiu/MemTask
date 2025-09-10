@@ -5,7 +5,7 @@ const WebSocket = require('ws');
 const { getConfig } = require('../dist/src/config');
 const { MemoryManager } = require('../dist/src/memory');
 const { TaskManager } = require('../dist/src/task');
-const { ContextManager } = require('../dist/src/context');
+const { GoalManager } = require('../dist/src/goal');
 const { CacheServiceFactory } = require('../dist/src/cache');
 
 // Configuration
@@ -22,7 +22,7 @@ const cacheFactory = new CacheServiceFactory(logger);
 // Create cache services for each manager
 const memoryCacheService = cacheFactory.create(config.cache.memory);
 const taskCacheService = cacheFactory.create(config.cache.task);
-const contextCacheService = cacheFactory.create(config.cache.context);
+const goalCacheService = cacheFactory.create(config.cache.goal);
 
 // Initialize managers with cache services
 const memoryManager = new MemoryManager(
@@ -35,9 +35,9 @@ const taskManager = new TaskManager(
   taskCacheService,
   logger
 );
-const contextManager = new ContextManager(
-  config.contextsPath,
-  contextCacheService,
+const goalManager = new GoalManager(
+  config.goalsPath,
+  goalCacheService,
   logger
 );
 
@@ -46,7 +46,7 @@ const contextManager = new ContextManager(
   try {
     await memoryManager.initialize();
     await taskManager.initialize();
-    await contextManager.initialize();
+    await goalManager.initialize();
     console.log('MCP data managers initialized successfully');
   } catch (error) {
     console.error('Failed to initialize MCP data managers:', error);
@@ -162,16 +162,20 @@ const server = http.createServer(async (req, res) => {
           try {
             const memories = await memoryManager.listMemories();
             const tasks = await taskManager.listTasks();
-            const contexts = await contextManager.listContextSnapshots();
+            const goals = await goalManager.listGoals();
             const activeTasks = tasks.filter(task => 
               task.status === 'todo' || task.status === 'in_progress'
+            ).length;
+            const activeGoals = goals.filter(goal => 
+              goal.status === 'active'
             ).length;
             
             data = {
               memoriesCount: memories.length,
               tasksCount: tasks.length,
-              contextsCount: contexts.length,
-              activeTasks: activeTasks
+              goalsCount: goals.length,
+              activeTasks: activeTasks,
+              activeGoals: activeGoals
             };
           } catch (error) {
             console.error('Failed to load overview data:', error);
@@ -200,21 +204,23 @@ const server = http.createServer(async (req, res) => {
             data = { error: 'Failed to load memories' };
           }
           break;
-        case 'contexts':
+        case 'goals':
           try {
-            const contexts = await contextManager.listContextSnapshots();
-            data = contexts.map(context => ({
-              id: context.id,
-              summary: context.summary,
-              created_at: context.created_at
+            const goals = await goalManager.listGoals();
+            data = goals.map(goal => ({
+              id: goal.id,
+              title: goal.title,
+              status: goal.status,
+              priority: goal.priority,
+              created_at: goal.created_at
             }));
           } catch (error) {
-            console.error('Failed to load contexts:', error);
-            data = { error: 'Failed to load contexts' };
+            console.error('Failed to load goals:', error);
+            data = { error: 'Failed to load goals' };
           }
           break;
         default:
-          // Handle detailed view endpoints (e.g., tasks/id, memories/id, contexts/id)
+          // Handle detailed view endpoints (e.g., tasks/id, memories/id, goals/id)
           if (pathParts.length === 2) {
             const [type, id] = pathParts;
             
@@ -253,21 +259,21 @@ const server = http.createServer(async (req, res) => {
                   data = { error: 'Failed to load memory details' };
                 }
                 break;
-              case 'contexts':
+              case 'goals':
                 try {
-                  const context = await contextManager.getContextSnapshot(id);
-                  if (context) {
+                  const goal = await goalManager.getGoal({ id });
+                  if (goal) {
                     // Ensure ID is included in the response
                     data = {
-                      ...context,
-                      id: context.id || id
+                      ...goal,
+                      id: goal.id || id
                     };
                   } else {
-                    data = { error: 'Context not found' };
+                    data = { error: 'Goal not found' };
                   }
                 } catch (error) {
-                  console.error('Failed to load context details:', error);
-                  data = { error: 'Failed to load context details' };
+                  console.error('Failed to load goal details:', error);
+                  data = { error: 'Failed to load goal details' };
                 }
                 break;
               default:
@@ -342,15 +348,15 @@ function clearManagerCaches(type, filename) {
           }
         }
         break;
-      case 'contexts':
+      case 'goals':
         if (filename && filename.endsWith('.json')) {
           const id = filename.replace('.json', '');
-          if (contextManager.cache && typeof contextManager.cache.delete === 'function') {
-            contextManager.cache.delete(id);
+          if (goalManager.cache && typeof goalManager.cache.delete === 'function') {
+            goalManager.cache.delete(id);
           }
           // Clear entire cache if we can't target specific item
-          if (contextManager.cache && typeof contextManager.cache.clear === 'function') {
-            contextManager.cache.clear();
+          if (goalManager.cache && typeof goalManager.cache.clear === 'function') {
+            goalManager.cache.clear();
           }
         }
         break;
@@ -392,7 +398,7 @@ function setupFileWatcher() {
   }
   
   // Watch subdirectories individually for better compatibility
-  const subdirs = ['memories', 'tasks', 'contexts'];
+  const subdirs = ['memories', 'tasks', 'goals'];
   
   subdirs.forEach(subdir => {
     const subdirPath = path.join(dataDir, subdir);
@@ -441,7 +447,7 @@ function setupPollingWatcher(dataDir) {
   let lastScan = {};
   
   const scanDirectory = () => {
-    const subdirs = ['memories', 'tasks', 'contexts'];
+    const subdirs = ['memories', 'tasks', 'goals'];
     
     subdirs.forEach(subdir => {
       const subdirPath = path.join(dataDir, subdir);
