@@ -23,12 +23,15 @@ This is a complete implementation of a Model Context Protocol (MCP) server, prov
 
 ### Task & Progress Tracking Module
 - **Task CRUD**: Full lifecycle management for tasks
-- **Goal Integration**: Tasks can be linked to parent goals via `goal_id`
+- **Mandatory Goal Association**: All tasks must be linked to parent goals via required `goal_id`
+- **Goal Validation**: Automatic validation ensures goal existence before task creation/updates
 - **Status Tracking**: todo, in progress, completed, cancelled
 - **Priority Management**: Three levels—low, medium, high
 - **Progress Notes**: Timestamped progress update records
 - **Task Dependencies**: Support for task dependency relationships with `depends_on` field
 - **Dependency Validation**: Prevents circular dependencies and validates executable tasks
+- **Goal-based Filtering**: Filter and list tasks by specific goals
+- **Cascading Operations**: Goal deletion automatically handles related tasks
 - **Semantic Linking**: Mechanism to associate tasks with memories
 
 ## Quick Start
@@ -80,12 +83,15 @@ node web-viewer/server.js --data-dir ./mcp_data
 
 ### Features
 - **Goal Dashboard**: Strategic overview with progress tracking and success criteria
-- **Task Management**: List view, Kanban board, and dependency visualization
+- **Task Management**: List view, Kanban board, and dependency visualization with Goal ID display
+- **Enhanced Dependencies View**: Dedicated Goal ID column showing task-goal associations
+- **Task Details**: Goal ID information displayed in expandable task details
 - **Memory Browser**: Search and manage stored memories
 - **Three-Tier Visualization**: Goal -> Task -> Memory relationship mapping
 - **Real-time Updates**: WebSocket-based live data synchronization
 - **Visual Indicators**: Color-coded status badges and progress tracking
 - **Goal Progress**: Automatic progress calculation based on linked task completion
+- **Orphaned Task Detection**: Clear visual indication of tasks without goal assignment
 
 ### Screenshots
 
@@ -112,6 +118,24 @@ node web-viewer/server.js --data-dir ./mcp_data
 #### Context Snapshots Interface
 ![Context Snapshots Interface](image/context_snapshots.png)   
 *Context snapshot management and browsing*
+
+## ⚠️ Breaking Changes in v2.2.0
+
+**IMPORTANT**: Version 2.2.0 introduces mandatory Goal-Task association and enhanced data integrity features.
+
+### What's Changed in v2.2.0
+- **BREAKING**: `create_task` now requires `goal_id` parameter
+- **NEW**: Goal existence validation for task creation and updates
+- **NEW**: Cascading cleanup when deleting goals (related tasks become orphaned)
+- **ENHANCED**: Web UI displays Goal ID in task details and dependencies page
+- **ENHANCED**: Task filtering by `goal_id` support in `list_tasks`
+- **ENHANCED**: Goal ID reassignment via `update_task`
+
+### Migration Required for v2.2.0
+- **All new tasks must specify a valid `goal_id`**
+- Existing tasks without `goal_id` remain as orphaned tasks
+- Update task creation workflows to include goal association
+- Review and reassign orphaned tasks to appropriate goals
 
 ## ⚠️ Breaking Changes in v2.1.0
 
@@ -281,6 +305,8 @@ If upgrading from v1.x, you **must** update all tool calls in your MCP client co
 }
 ```
 
+**Note**: Deleting a goal will automatically clear the `goal_id` field from all related tasks, making them orphaned tasks. The system will report how many tasks were affected by the deletion.
+
 ### Task Management
 
 #### Create Task
@@ -290,10 +316,10 @@ If upgrading from v1.x, you **must** update all tool calls in your MCP client co
   "arguments": {
     "title": "Complete product prototype",
     "description": "Build the product prototype based on meeting discussions",
+    "goal_id": "goal-1",  // REQUIRED: Must specify valid goal ID
     "priority": "high",
     "tags": ["development", "prototype"],
     "due_date": "2024-12-31T23:59:59Z",
-    "goal_id": "goal-1",
     "linked_memories": ["memory-id-1", "memory-id-2"],
     "depends_on": ["task-id-1", "task-id-2"]
   }
@@ -322,6 +348,17 @@ If upgrading from v1.x, you **must** update all tool calls in your MCP client co
 }
 ```
 
+#### Update Task Goal Assignment
+```json
+{
+  "tool": "update_task",
+  "arguments": {
+    "id": "task-id-456",
+    "goal_id": "goal-2"  // Reassign task to different goal
+  }
+}
+```
+
 #### Search Tasks
 ```json
 {
@@ -340,6 +377,16 @@ If upgrading from v1.x, you **must** update all tool calls in your MCP client co
   "arguments": {
     "status": "in_progress",
     "priority": "high"
+  }
+}
+```
+
+#### List Tasks by Goal
+```json
+{
+  "tool": "list_tasks",
+  "arguments": {
+    "goal_id": "goal-1"  // Filter tasks by specific goal
   }
 }
 ```
@@ -403,12 +450,14 @@ Goal (Strategic Level)
  ├── linked_tasks: ["task-1", "task-2"]
  │
 Task (Implementation Level)
- ├── goal_id: "goal-1" (optional)
+ ├── goal_id: "goal-1" (REQUIRED)
  ├── linked_memories: ["memory-1", "memory-2"]
  │
 Memory (Knowledge Level)
  └── Referenced by tasks for context and information
 ```
+
+**Note**: Starting from v2.2.0, all tasks must have a `goal_id` to ensure proper Goal-Task association and maintain data integrity.
 
 For detailed schema information, see the TypeScript interfaces in `src/types.ts`.
 
@@ -437,7 +486,8 @@ For detailed schema information, see the TypeScript interfaces in `src/types.ts`
 ```
 
 ### Version Compatibility Notes
-- **v2.1**: Uses 17 operation-specific tools with Goal management (current)
+- **v2.2**: Enhanced Goal-Task integration with mandatory association (current)
+- **v2.1**: Uses 17 operation-specific tools with Goal management (deprecated)
 - **v2.0**: Uses 11 operation-specific tools (deprecated)
 - **v1.x**: Used unified `memory_tool` and `task_tool` (deprecated)
 - **No backward compatibility** between major versions

@@ -1,11 +1,12 @@
 {
-  "name": "memory-task-mcp",
-  "version": "2.1.0",
-  "description": "Memory and task management MCP Server",
+  "name": "memtask",
+  "version": "2.2.0",
+  "description": "Memory and task management MCP Server with Goal-Task-Memory architecture",
   "bin": {
-    "memory-task-mcp": "./dist/src/index.js"
+    "memtask": "./dist/src/index.js"
   },
   "type": "commonjs",
+  "main": "./dist/src/index.js",
   "scripts": {
     "start": "node ./dist/src/index.js",
     "build": "tsc",
@@ -14,12 +15,17 @@
     "clean": "rimraf dist",
     "lint": "eslint src --ext .ts",
     "test": "jest",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/KNChiu/MemTask"
+    "url": "git+https://github.com/KNChiu/MemTask.git"
   },
+  "bugs": {
+    "url": "https://github.com/KNChiu/MemTask/issues"
+  },
+  "homepage": "https://github.com/KNChiu/MemTask#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
     "ws": "^8.18.2"
@@ -41,15 +47,21 @@
   },
   "keywords": [
     "mcp",
+    "mcp-server",
+    "model-context-protocol",
     "memory",
-    "task",
-    "context"
+    "task-management",
+    "goal-tracking",
+    "context",
+    "ai-tools",
+    "claude",
+    "semantic-search"
   ],
   "files": [
     "dist/",
     "README.md",
     "LICENSE"
   ],
-  "author": "",
+  "author": "KNChiu",
   "license": "MIT"
 }

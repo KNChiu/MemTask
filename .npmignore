@@ -1,0 +1,54 @@
+# Source files
+src/
+tsconfig.json
+
+# Development files
+*.md
+!README.md
+!LICENSE
+
+# Test files
+test/
+tests/
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+jest.config.js
+coverage/
+
+# Development tools
+.vscode/
+.idea/
+.git/
+.github/
+.gitignore
+.eslintrc*
+.prettierrc*
+.editorconfig
+
+# Documentation
+docs/
+CLAUDE.md
+
+# Build tools
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+node_modules/
+
+# Local data and testing
+mcp_data/
+web-viewer/
+examples/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# TypeScript
+*.tsbuildinfo
