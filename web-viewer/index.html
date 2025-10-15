@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Local-first dashboard for MemTask goal, task, and memory visualization">
+  <title>MemTask Dashboard</title>
+
+  <!-- CSS Modules -->
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/components.css">
+  <link rel="stylesheet" href="styles/goal-view.css">
+  <link rel="stylesheet" href="styles/task-kanban.css">
+  <link rel="stylesheet" href="styles/memory-search.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-content">
+      <h1 class="app-title">MemTask Dashboard</h1>
+
+      <div class="header-controls">
+        <input
+          type="search"
+          id="global-search"
+          class="search-input"
+          placeholder="Search goals, tasks, memories... (Press / to focus)"
+          aria-label="Global search">
+
+        <button
+          id="refresh-btn"
+          class="btn btn-icon"
+          title="Force refresh (Ctrl+R)"
+          aria-label="Refresh data">
+          ↻
+        </button>
+
+        <span id="last-update" class="last-update-time">Loading...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="app-main">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <section class="filter-section">
+        <h2 class="section-title">Filters</h2>
+
+        <!-- Status Filter -->
+        <div class="filter-group">
+          <h3 class="filter-title">Status</h3>
+          <div id="status-filters" class="filter-options">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Priority Filter -->
+        <div class="filter-group">
+          <h3 class="filter-title">Priority</h3>
+          <div id="priority-filters" class="filter-options">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Goal Filter -->
+        <div class="filter-group">
+          <h3 class="filter-title">Goals</h3>
+          <div id="goal-filters" class="filter-options">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <button id="clear-filters-btn" class="btn btn-secondary btn-block">
+          Clear All Filters
+        </button>
+      </section>
+    </aside>
+
+    <!-- Dashboard Content -->
+    <section class="dashboard-content">
+      <!-- Goal Overview Section -->
+      <section id="goal-overview" class="dashboard-section">
+        <div class="section-header">
+          <h2 class="section-title">Goals</h2>
+          <span id="goal-count" class="item-count">0 goals</span>
+        </div>
+
+        <div id="goal-cards-container" class="goal-cards-grid">
+          <!-- Goal cards dynamically rendered here -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="goals-empty-state" class="empty-state hidden">
+          <p class="empty-state-text">
+            No goals found. Create your first goal using the MCP tool:
+          </p>
+          <code class="empty-state-code">create_goal(title="My Goal", description="...")</code>
+        </div>
+      </section>
+
+      <!-- Task Kanban Section -->
+      <section id="task-kanban" class="dashboard-section">
+        <div class="section-header">
+          <h2 class="section-title">Tasks</h2>
+          <span id="task-count" class="item-count">0 tasks</span>
+        </div>
+
+        <div id="kanban-board" class="kanban-board">
+          <!-- Todo Column -->
+          <div class="kanban-column" data-status="todo">
+            <h3 class="kanban-column-header">
+              Todo
+              <span class="column-count" id="todo-count">0</span>
+            </h3>
+            <div class="kanban-column-content" id="todo-column">
+              <!-- Task cards dynamically rendered here -->
+            </div>
+          </div>
+
+          <!-- In Progress Column -->
+          <div class="kanban-column" data-status="in_progress">
+            <h3 class="kanban-column-header">
+              In Progress
+              <span class="column-count" id="in-progress-count">0</span>
+            </h3>
+            <div class="kanban-column-content" id="in-progress-column">
+              <!-- Task cards dynamically rendered here -->
+            </div>
+          </div>
+
+          <!-- Completed Column -->
+          <div class="kanban-column" data-status="completed">
+            <h3 class="kanban-column-header">
+              Completed
+              <span class="column-count" id="completed-count">0</span>
+            </h3>
+            <div class="kanban-column-content" id="completed-column">
+              <!-- Task cards dynamically rendered here -->
+            </div>
+          </div>
+
+          <!-- Cancelled Column -->
+          <div class="kanban-column" data-status="cancelled">
+            <h3 class="kanban-column-header">
+              Cancelled
+              <span class="column-count" id="cancelled-count">0</span>
+            </h3>
+            <div class="kanban-column-content" id="cancelled-column">
+              <!-- Task cards dynamically rendered here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- SVG Overlay for Dependency Arrows -->
+        <svg id="dependency-svg" class="dependency-overlay" aria-hidden="true">
+          <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <polygon points="0 0, 10 3, 0 6" fill="var(--color-dependency)" />
+            </marker>
+          </defs>
+        </svg>
+
+        <!-- Empty State -->
+        <div id="tasks-empty-state" class="empty-state hidden">
+          <p class="empty-state-text">
+            No tasks found. Select a goal or adjust filters.
+          </p>
+        </div>
+      </section>
+
+      <!-- Memory Browser Section -->
+      <section id="memory-browser" class="dashboard-section">
+        <div class="section-header">
+          <h2 class="section-title">Memories</h2>
+          <span id="memory-count" class="item-count">0 memories</span>
+        </div>
+
+        <div class="memory-search-container">
+          <input
+            type="search"
+            id="memory-search"
+            class="search-input search-input-large"
+            placeholder="Search memories by content or summary..."
+            aria-label="Search memories">
+
+          <div id="memory-tags" class="tag-filters">
+            <!-- Tag filter chips dynamically rendered here -->
+          </div>
+        </div>
+
+        <div id="memory-list" class="memory-list">
+          <!-- Memory items dynamically rendered here -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="memories-empty-state" class="empty-state hidden">
+          <p class="empty-state-text">
+            No memories found. Try a different search or create a new memory.
+          </p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- Modal Container -->
+  <div id="modal-container" class="modal-container hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <button class="modal-close" aria-label="Close modal">×</button>
+      <nav id="modal-breadcrumb" class="modal-breadcrumb hidden" aria-label="Navigation breadcrumb">
+        <!-- Breadcrumb dynamically rendered here -->
+      </nav>
+      <div id="modal-body">
+        <!-- Modal content dynamically rendered here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true">
+    <!-- Toast messages dynamically rendered here -->
+  </div>
+
+  <!-- Loading Indicator -->
+  <div id="loading-indicator" class="loading-indicator hidden">
+    <div class="spinner"></div>
+    <span>Loading data...</span>
+  </div>
+
+  <!-- JavaScript Modules (ES6) -->
+  <script type="module" src="scripts/main.js"></script>
+</body>
+</html>

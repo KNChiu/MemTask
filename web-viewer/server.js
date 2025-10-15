@@ -1,544 +1,222 @@
+/**
+ * MemTask Dashboard Server
+ * Static file server with JSON data API endpoints
+ */
+
 const http = require('http');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
-const WebSocket = require('ws');
-const { getConfig } = require('../dist/src/config');
-const { MemoryManager } = require('../dist/src/memory');
-const { TaskManager } = require('../dist/src/task');
-const { GoalManager } = require('../dist/src/goal');
-const { CacheServiceFactory } = require('../dist/src/cache');
+const url = require('url');
 
 // Configuration
-const PORT = 8080;
-const PUBLIC_DIR = path.join(__dirname, 'public');
+const PORT = process.env.PORT || 8080;
+const DATA_DIR = process.env.MCP_DATA_DIR || path.join(__dirname, '../mcp_data');
+const WEB_DIR = __dirname;
 
-// Initialize MCP data managers
-const config = getConfig();
-const logger = console;
+// MIME types
+const MIME_TYPES = {
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+};
 
-// Create cache service factory
-const cacheFactory = new CacheServiceFactory(logger);
+// File modification timestamps cache
+const fileTimestamps = new Map();
 
-// Create cache services for each manager
-const memoryCacheService = cacheFactory.create(config.cache.memory);
-const taskCacheService = cacheFactory.create(config.cache.task);
-const goalCacheService = cacheFactory.create(config.cache.goal);
-
-// Initialize managers with cache services
-const memoryManager = new MemoryManager(
-  config.memoriesPath,
-  memoryCacheService,
-  logger
-);
-const taskManager = new TaskManager(
-  config.tasksPath,
-  taskCacheService,
-  logger
-);
-const goalManager = new GoalManager(
-  config.goalsPath,
-  goalCacheService,
-  logger
-);
-
-// Initialize data managers
-(async () => {
+/**
+ * Read all JSON files from a directory
+ */
+async function readJSONFiles(dirPath) {
   try {
-    await memoryManager.initialize();
-    await taskManager.initialize();
-    await goalManager.initialize();
-    console.log('MCP data managers initialized successfully');
-  } catch (error) {
-    console.error('Failed to initialize MCP data managers:', error);
-    process.exit(1);
-  }
-})();
+    const files = await fs.readdir(dirPath);
+    const jsonFiles = files.filter(f => f.endsWith('.json'));
 
-// Create HTTP server
+    const data = [];
+    for (const file of jsonFiles) {
+      const filePath = path.join(dirPath, file);
+      try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        const json = JSON.parse(content);
+        data.push(json);
+
+        // Update timestamp cache
+        const stats = await fs.stat(filePath);
+        fileTimestamps.set(`${path.basename(dirPath)}/${file}`, stats.mtime);
+      } catch (error) {
+        console.error(`Error reading ${file}:`, error.message);
+      }
+    }
+    return data;
+  } catch (error) {
+    console.error(`Error reading directory ${dirPath}:`, error.message);
+    return [];
+  }
+}
+
+/**
+ * API: Get all goals
+ */
+async function getGoals() {
+  const goalsDir = path.join(DATA_DIR, 'goals');
+  const goals = await readJSONFiles(goalsDir);
+  return {
+    success: true,
+    data: goals,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/**
+ * API: Get all tasks
+ */
+async function getTasks() {
+  const tasksDir = path.join(DATA_DIR, 'tasks');
+  const tasks = await readJSONFiles(tasksDir);
+  return {
+    success: true,
+    data: tasks,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/**
+ * API: Get all memories
+ */
+async function getMemories() {
+  const memoriesDir = path.join(DATA_DIR, 'memories');
+  const memories = await readJSONFiles(memoriesDir);
+  return {
+    success: true,
+    data: memories,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/**
+ * API: Get changed files since timestamp
+ */
+async function getChanges(sinceTimestamp) {
+  const since = new Date(sinceTimestamp);
+  const changes = { goals: [], tasks: [], memories: [] };
+
+  for (const [file, mtime] of fileTimestamps.entries()) {
+    if (mtime > since) {
+      const [type, filename] = file.split('/');
+      if (changes[type]) {
+        changes[type].push(filename);
+      }
+    }
+  }
+
+  return {
+    success: true,
+    changes,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/**
+ * Serve static files
+ */
+async function serveStaticFile(filePath, res) {
+  try {
+    const content = await fs.readFile(filePath);
+    const ext = path.extname(filePath);
+    const mimeType = MIME_TYPES[ext] || 'application/octet-stream';
+
+    res.writeHead(200, {
+      'Content-Type': mimeType,
+      'Cache-Control': 'public, max-age=3600'
+    });
+    res.end(content);
+  } catch (error) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('404 Not Found');
+  }
+}
+
+/**
+ * HTTP Server
+ */
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  
-  // Add CORS headers
+  const parsedUrl = url.parse(req.url, true);
+  const pathname = parsedUrl.pathname;
+
+  // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
-  // Handle preflight requests
+
   if (req.method === 'OPTIONS') {
     res.writeHead(200);
     res.end();
     return;
   }
-  
-  // Serve static files
-  if (req.method === 'GET' && !url.pathname.startsWith('/api/')) {
-    const filePath = path.join(PUBLIC_DIR, url.pathname === '/' ? 'index.html' : url.pathname);
-    
-    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-      const ext = path.extname(filePath).substring(1);
-      const contentType = {
-        'html': 'text/html',
-        'css': 'text/css',
-        'js': 'application/javascript',
-        'json': 'application/json'
-      }[ext] || 'text/plain';
 
-      res.writeHead(200, { 'Content-Type': contentType });
-      fs.createReadStream(filePath).pipe(res);
-      return;
+  try {
+    // API Routes
+    if (pathname === '/api/goals') {
+      const result = await getGoals();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result.data));
     }
-  }
-  
-  // Handle POST API requests for task status updates
-  if (req.method === 'POST' && url.pathname.startsWith('/api/tasks/') && url.pathname.endsWith('/status')) {
-    try {
-      // Extract task ID from URL
-      const pathMatch = url.pathname.match(/^\/api\/tasks\/([^\/]+)\/status$/);
-      if (!pathMatch) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid task status update URL' }));
+    else if (pathname === '/api/tasks') {
+      const result = await getTasks();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result.data));
+    }
+    else if (pathname === '/api/memories') {
+      const result = await getMemories();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result.data));
+    }
+    else if (pathname === '/api/changes') {
+      const since = parsedUrl.query.since || new Date(0).toISOString();
+      const data = await getChanges(since);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    }
+    // Static Files
+    else {
+      let filePath = path.join(WEB_DIR, pathname === '/' ? 'index.html' : pathname);
+
+      // Security: prevent directory traversal
+      if (!filePath.startsWith(WEB_DIR)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('403 Forbidden');
         return;
       }
-      
-      const taskId = pathMatch[1];
-      
-      // Parse request body
-      let body = '';
-      req.on('data', chunk => {
-        body += chunk.toString();
-      });
-      
-      req.on('end', async () => {
-        try {
-          const { status, progress_note } = JSON.parse(body);
-          
-          if (!status || !['todo', 'in_progress', 'completed', 'cancelled'].includes(status)) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Invalid status value' }));
-            return;
-          }
-          
-          // Update task using TaskManager
-          const updateResult = await taskManager.updateTask({
-            id: taskId,
-            status: status,
-            progress_note: progress_note || `Status updated to ${status}`
-          });
-          
-          if (updateResult) {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ 
-              success: true, 
-              message: `Task ${taskId} status updated to ${status}`,
-              task: updateResult
-            }));
-          } else {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: `Task ${taskId} not found` }));
-          }
-        } catch (parseError) {
-          console.error('Error parsing request body:', parseError);
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid JSON in request body' }));
-        }
-      });
-    } catch (error) {
-      console.error('Error handling task status update:', error);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Internal server error' }));
-    }
-    return;
-  }
-  
-  // Handle API requests - Mock data for demo
-  if (req.method === 'GET' && url.pathname.startsWith('/api/')) {
-    try {
-      const endpoint = url.pathname.replace('/api/', '');
-      const pathParts = endpoint.split('/');
-      let data = {};
-      
-      switch (endpoint) {
-        case 'overview':
-          try {
-            const memories = await memoryManager.listMemories();
-            const tasks = await taskManager.listTasks();
-            const goals = await goalManager.listGoals();
-            const activeTasks = tasks.filter(task => 
-              task.status === 'todo' || task.status === 'in_progress'
-            ).length;
-            const activeGoals = goals.filter(goal => 
-              goal.status === 'active'
-            ).length;
-            
-            data = {
-              memoriesCount: memories.length,
-              tasksCount: tasks.length,
-              goalsCount: goals.length,
-              activeTasks: activeTasks,
-              activeGoals: activeGoals
-            };
-          } catch (error) {
-            console.error('Failed to load overview data:', error);
-            data = { error: 'Failed to load overview data' };
-          }
-          break;
-        case 'tasks':
-          try {
-            const tasks = await taskManager.listTasks();
-            data = tasks;
-          } catch (error) {
-            console.error('Failed to load tasks:', error);
-            data = { error: 'Failed to load tasks' };
-          }
-          break;
-        case 'memories':
-          try {
-            const memories = await memoryManager.listMemories();
-            data = memories.map(memory => ({
-              id: memory.id,
-              summary: memory.summary,
-              created_at: memory.metadata.created_at
-            }));
-          } catch (error) {
-            console.error('Failed to load memories:', error);
-            data = { error: 'Failed to load memories' };
-          }
-          break;
-        case 'goals':
-          try {
-            const goals = await goalManager.listGoals();
-            data = goals.map(goal => ({
-              id: goal.id,
-              title: goal.title,
-              status: goal.status,
-              priority: goal.priority,
-              created_at: goal.created_at
-            }));
-          } catch (error) {
-            console.error('Failed to load goals:', error);
-            data = { error: 'Failed to load goals' };
-          }
-          break;
-        default:
-          // Handle detailed view endpoints (e.g., tasks/id, memories/id, goals/id)
-          if (pathParts.length === 2) {
-            const [type, id] = pathParts;
-            
-            switch (type) {
-              case 'tasks':
-                try {
-                  const task = await taskManager.getTaskStatus({ id });
-                  if (task) {
-                    // Ensure ID is included in the response
-                    data = {
-                      ...task,
-                      id: task.id || id
-                    };
-                  } else {
-                    data = { error: 'Task not found' };
-                  }
-                } catch (error) {
-                  console.error('Failed to load task details:', error);
-                  data = { error: 'Failed to load task details' };
-                }
-                break;
-              case 'memories':
-                try {
-                  const memory = await memoryManager.getMemory(id);
-                  if (memory) {
-                    // Ensure ID is included in the response
-                    data = {
-                      ...memory,
-                      id: memory.id || id
-                    };
-                  } else {
-                    data = { error: 'Memory not found' };
-                  }
-                } catch (error) {
-                  console.error('Failed to load memory details:', error);
-                  data = { error: 'Failed to load memory details' };
-                }
-                break;
-              case 'goals':
-                try {
-                  const goal = await goalManager.getGoal({ id });
-                  if (goal) {
-                    // Ensure ID is included in the response
-                    data = {
-                      ...goal,
-                      id: goal.id || id
-                    };
-                  } else {
-                    data = { error: 'Goal not found' };
-                  }
-                } catch (error) {
-                  console.error('Failed to load goal details:', error);
-                  data = { error: 'Failed to load goal details' };
-                }
-                break;
-              default:
-                data = { error: 'Unknown detail endpoint' };
-            }
-          } else {
-            data = { error: 'Unknown endpoint' };
-          }
-      }
-      
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      const jsonString = JSON.stringify(data, null, 2);
-      res.end(jsonString);
-    } catch (error) {
-      console.error('API Error:', error);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: error.message }));
-    }
-    return;
-  }
-  
-  // Not found
-  res.writeHead(404, { 'Content-Type': 'text/plain' });
-  res.end('Not found');
-});
 
-// Create WebSocket server
-const wss = new WebSocket.Server({ server });
-
-// Store connected clients
-const clients = new Set();
-
-// WebSocket connection handling
-wss.on('connection', (ws) => {
-  clients.add(ws);
-  
-  ws.on('close', () => {
-    clients.delete(ws);
-  });
-  
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
-    clients.delete(ws);
-  });
-});
-
-// Clear cache for specific managers based on file changes
-function clearManagerCaches(type, filename) {
-  try {
-    switch (type) {
-      case 'memories':
-        if (filename && filename.endsWith('.json')) {
-          const id = filename.replace('.json', '');
-          if (memoryManager.cache && typeof memoryManager.cache.delete === 'function') {
-            memoryManager.cache.delete(id);
-          }
-          // Clear entire cache if we can't target specific item
-          if (memoryManager.cache && typeof memoryManager.cache.clear === 'function') {
-            memoryManager.cache.clear();
-          }
-        }
-        break;
-      case 'tasks':
-        if (filename && filename.endsWith('.json')) {
-          const id = filename.replace('.json', '');
-          if (taskManager.cache && typeof taskManager.cache.delete === 'function') {
-            taskManager.cache.delete(id);
-          }
-          // Clear entire cache if we can't target specific item
-          if (taskManager.cache && typeof taskManager.cache.clear === 'function') {
-            taskManager.cache.clear();
-          }
-        }
-        break;
-      case 'goals':
-        if (filename && filename.endsWith('.json')) {
-          const id = filename.replace('.json', '');
-          if (goalManager.cache && typeof goalManager.cache.delete === 'function') {
-            goalManager.cache.delete(id);
-          }
-          // Clear entire cache if we can't target specific item
-          if (goalManager.cache && typeof goalManager.cache.clear === 'function') {
-            goalManager.cache.clear();
-          }
-        }
-        break;
+      await serveStaticFile(filePath, res);
     }
   } catch (error) {
-    console.error(`Error clearing cache for ${type}:`, error);
+    console.error('Server error:', error);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: false,
+      error: 'Internal server error',
+      code: 'SERVER_ERROR'
+    }));
   }
-}
-
-// Broadcast function to send updates to all connected clients
-function broadcastUpdate(type, data) {
-  // Clear caches before broadcasting updates
-  clearManagerCaches(type, data.filename);
-  
-  const message = JSON.stringify({ type, data, timestamp: new Date().toISOString() });
-  
-  clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(message);
-      } catch (error) {
-        console.error('Error sending WebSocket message:', error);
-        clients.delete(client);
-      }
-    } else {
-      clients.delete(client);
-    }
-  });
-}
-
-// File system watcher for dataDir
-function setupFileWatcher() {
-  const dataDir = config.dataDir;
-  
-  // Check if directory exists
-  if (!fs.existsSync(dataDir)) {
-    console.error(`Data directory does not exist: ${dataDir}`);
-    return;
-  }
-  
-  // Watch subdirectories individually for better compatibility
-  const subdirs = ['memories', 'tasks', 'goals'];
-  
-  subdirs.forEach(subdir => {
-    const subdirPath = path.join(dataDir, subdir);
-    
-    if (!fs.existsSync(subdirPath)) {
-      fs.mkdirSync(subdirPath, { recursive: true });
-    }
-    
-    try {
-      const watcher = fs.watch(subdirPath, { persistent: true }, (eventType, filename) => {
-        if (filename) {
-          const fullPath = path.join(subdirPath, filename);
-          
-          // Broadcast the update to all connected clients
-          broadcastUpdate(subdir, {
-            eventType,
-            filename,
-            path: fullPath,
-            directory: subdir
-          });
-        } else {
-          // If filename is null, still broadcast a general update
-          broadcastUpdate(subdir, {
-            eventType,
-            filename: null,
-            path: subdirPath,
-            directory: subdir
-          });
-        }
-      });
-      
-      watcher.on('error', (error) => {
-        console.error(`File watcher error for ${subdir}:`, error);
-      });
-    } catch (error) {
-      console.error(`Failed to setup file watcher for ${subdir}:`, error);
-    }
-  });
-  
-  // Also set up a fallback polling method for additional reliability
-  setupPollingWatcher(dataDir);
-}
-
-// Fallback polling watcher
-function setupPollingWatcher(dataDir) {
-  let lastScan = {};
-  
-  const scanDirectory = () => {
-    const subdirs = ['memories', 'tasks', 'goals'];
-    
-    subdirs.forEach(subdir => {
-      const subdirPath = path.join(dataDir, subdir);
-      
-      if (fs.existsSync(subdirPath)) {
-        try {
-          const files = fs.readdirSync(subdirPath);
-          const currentScan = {};
-          
-          // Build current scan as a map with filename as key
-          files.forEach(file => {
-            const filePath = path.join(subdirPath, file);
-            try {
-              const stats = fs.statSync(filePath);
-              currentScan[file] = {
-                name: file,
-                mtime: stats.mtime.getTime(),
-                ctime: stats.ctime.getTime(), // Change time
-                size: stats.size,
-                isFile: stats.isFile()
-              };
-            } catch (statError) {
-              // Ignore stat errors for cleanup
-            }
-          });
-          
-          const lastScanForDir = lastScan[subdir] || {};
-          
-          // Check for changes by comparing file maps
-          let hasChanges = false;
-          let changedFiles = [];
-          
-          // Check for new or modified files
-          Object.keys(currentScan).forEach(filename => {
-            const currentFile = currentScan[filename];
-            const lastFile = lastScanForDir[filename];
-            
-            if (!lastFile) {
-              // New file
-              hasChanges = true;
-              changedFiles.push({ name: filename, change: 'added' });
-            } else if (
-              currentFile.mtime !== lastFile.mtime || 
-              currentFile.ctime !== lastFile.ctime ||
-              currentFile.size !== lastFile.size
-            ) {
-              // Modified file
-              hasChanges = true;
-              changedFiles.push({ name: filename, change: 'modified' });
-            }
-          });
-          
-          // Check for deleted files
-          Object.keys(lastScanForDir).forEach(filename => {
-            if (!currentScan[filename]) {
-              hasChanges = true;
-              changedFiles.push({ name: filename, change: 'deleted' });
-            }
-          });
-          
-          if (hasChanges && Object.keys(lastScanForDir).length > 0) {
-            broadcastUpdate(subdir, {
-              eventType: 'change',
-              filename: 'polling-detected',
-              path: subdirPath,
-              directory: subdir,
-              method: 'polling',
-              changes: changedFiles
-            });
-          }
-          
-          lastScan[subdir] = currentScan;
-        } catch (error) {
-          console.error(`Error scanning directory ${subdir}:`, error);
-        }
-      }
-    });
-  };
-  
-  // Initial scan
-  scanDirectory();
-  
-  // Poll every 1 second for better responsiveness
-  setInterval(scanDirectory, 1000);
-}
+});
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`MemTask Web Viewer running at http://localhost:${PORT}/`);
-  console.log(`Serving static files from: ${PUBLIC_DIR}`);
-  
-  // Setup file watcher after server starts
-  setupFileWatcher();
+  console.log(`MemTask Dashboard server running at http://localhost:${PORT}/`);
+  console.log(`Data directory: ${DATA_DIR}`);
+  console.log(`Press Ctrl+C to stop`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
 });

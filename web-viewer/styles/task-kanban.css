@@ -1,0 +1,293 @@
+/**
+ * Task Kanban Styles
+ * Task cards, kanban columns, dependency arrows
+ */
+
+/* Task Card */
+.task-card {
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  position: relative;
+}
+
+.task-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--color-primary);
+  z-index: 10;
+}
+
+/* Task Card Header */
+.task-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-xs);
+}
+
+.task-card-priority {
+  flex-shrink: 0;
+}
+
+.task-card-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  flex: 1;
+  word-break: break-word;
+}
+
+/* Task Card Body */
+.task-card-goal {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 2px 6px;
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.task-card-goal:hover {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+/* Task Card Footer */
+.task-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  align-items: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.task-card-due-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.task-card-due-date.overdue {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+.task-card-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.task-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+}
+
+/* Dependency Indicators */
+.task-card-dependencies {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.dependency-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-background-tertiary);
+  font-size: 10px;
+}
+
+.dependency-icon.has-dependencies {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-info);
+}
+
+.dependency-icon.circular {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+}
+
+/* Orphaned Task Indicator */
+.task-card.orphaned {
+  border-left: 3px solid var(--color-warning);
+}
+
+.task-card.orphaned .task-card-header::before {
+  content: '⚠';
+  color: var(--color-warning);
+  font-size: var(--font-size-base);
+}
+
+/* Task Detail Modal */
+.task-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.task-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.task-detail-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.task-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.task-detail-description {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+/* Task Dependencies Section */
+.task-dependencies-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.task-dependencies-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.task-dependencies-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.dependency-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dependency-item:hover {
+  background: var(--color-background-hover);
+  transform: translateX(4px);
+}
+
+.dependency-item.broken {
+  border-left: 3px solid var(--color-danger);
+}
+
+.dependency-item-title {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  flex: 1;
+}
+
+/* Linked Memories Section */
+.linked-memories-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.linked-memories-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.linked-memories-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.linked-memory-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.linked-memory-item:hover {
+  background: var(--color-background-hover);
+}
+
+.linked-memory-summary {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.linked-memory-preview {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Dependency Arrow Styles (SVG) */
+.dependency-arrow {
+  stroke: var(--color-dependency);
+  stroke-width: 2;
+  fill: none;
+  marker-end: url(#arrowhead);
+  transition: stroke var(--transition-fast);
+}
+
+.dependency-arrow.broken {
+  stroke: var(--color-dependency-broken);
+  stroke-dasharray: 4 4;
+}
+
+.dependency-arrow.circular {
+  stroke: var(--color-dependency-circular);
+  stroke-width: 3;
+}
+
+.dependency-arrow:hover {
+  stroke: var(--color-primary);
+  stroke-width: 3;
+}

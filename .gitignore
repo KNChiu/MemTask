@@ -1,3 +1,7 @@
 node_modules/
 mcp_data/
 dist/
+test-data/
+.mcp.json
+CLAUDE.md
+*.tgz
