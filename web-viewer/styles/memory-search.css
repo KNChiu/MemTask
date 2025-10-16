@@ -63,6 +63,32 @@
   margin-top: var(--spacing-xs);
 }
 
+/* Memory Item Meta */
+.memory-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+.memory-item-meta .memory-meta-item {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+
+.memory-item-meta .meta-label {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.memory-item-meta .meta-value {
+  color: var(--color-text-secondary);
+}
+
 /* Memory Detail Modal */
 .memory-detail {
   display: flex;

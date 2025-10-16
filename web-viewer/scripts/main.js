@@ -10,7 +10,7 @@
 
 import { logger, LogLevel } from './logger.js';
 import { dataLoader } from './data-loader.js';
-import { formatRelativeTime, debounce, escapeHtml } from './utils.js';
+import { formatRelativeTime, debounce, escapeHtml, truncateText, formatAbsoluteDate, setLoading, showToast, getTagColor } from './utils.js';
 import { renderGoalCard, renderGoalDetailModal, setupGoalCardListeners } from './goal-renderer.js';
 import { renderKanban as renderKanbanBoard, renderTaskDetailModal, setupKanbanListeners, clearKanban as clearKanbanBoard } from './task-kanban.js';
 
@@ -27,7 +27,12 @@ const appState = {
     search: '',
     status: new Set(),
     priority: new Set(),
-    goals: new Set()
+    goals: new Set(),
+    tags: new Set()
+  },
+  memoryFilters: {
+    search: '',
+    tags: new Set()
   },
   selectedGoal: null,
   isLoading: false,
@@ -52,6 +57,7 @@ const elements = {
   statusFilters: null,
   priorityFilters: null,
   goalFilters: null,
+  tagFilters: null,
   clearFiltersBtn: null,
 
   // Goals
@@ -94,9 +100,9 @@ async function init() {
     setupEventListeners();
 
     // Initialize data loader
-    showLoading();
+    setLoading(true);
     await dataLoader.init();
-    hideLoading();
+    setLoading(false);
 
     // Initial render
     renderAll();
@@ -107,7 +113,7 @@ async function init() {
     logger.info('App', 'Dashboard initialized successfully');
   } catch (error) {
     logger.error('App', 'Failed to initialize dashboard', error);
-    hideLoading();
+    setLoading(false);
     showToast('Failed to load data. Please refresh the page.', 'error');
   }
 }
@@ -125,6 +131,7 @@ function cacheElements() {
   elements.statusFilters = document.getElementById('status-filters');
   elements.priorityFilters = document.getElementById('priority-filters');
   elements.goalFilters = document.getElementById('goal-filters');
+  elements.tagFilters = document.getElementById('tag-filters');
   elements.clearFiltersBtn = document.getElementById('clear-filters-btn');
 
   // Goals
@@ -227,12 +234,12 @@ async function handleRefresh() {
   logger.info('App', 'Manual refresh triggered');
 
   try {
-    showLoading();
+    setLoading(true);
     await dataLoader.refresh();
-    hideLoading();
+    setLoading(false);
   } catch (error) {
     logger.error('App', 'Refresh failed', error);
-    hideLoading();
+    setLoading(false);
     showToast('Failed to refresh data', 'error');
   }
 }
@@ -246,6 +253,7 @@ function handleClearFilters() {
   appState.filters.status.clear();
   appState.filters.priority.clear();
   appState.filters.goals.clear();
+  appState.filters.tags.clear();
   appState.filters.search = '';
   appState.selectedGoal = null;
 
@@ -261,6 +269,7 @@ function handleClearFilters() {
 function handleMemorySearch(event) {
   const query = event.target.value.toLowerCase();
   logger.debug('App', `Memory search: ${query}`);
+  appState.memoryFilters.search = query;
   renderMemories(query);
 }
 
@@ -297,6 +306,7 @@ function renderAll() {
   renderGoals();
   renderTasks();
   renderMemories();
+  renderMemoryTagFilters();
 }
 
 /**
@@ -332,6 +342,22 @@ function renderFilters() {
     </label>
   `).join('');
 
+  // Tag filters - collect all unique tags from tasks
+  const allTags = new Set();
+  tasks.forEach(task => {
+    if (task.tags && task.tags.length > 0) {
+      task.tags.forEach(tag => allTags.add(tag));
+    }
+  });
+
+  const sortedTags = Array.from(allTags).sort();
+  elements.tagFilters.innerHTML = sortedTags.map(tag => `
+    <label class="filter-checkbox">
+      <input type="checkbox" value="${tag}" ${appState.filters.tags.has(tag) ? 'checked' : ''}>
+      <span class="tag-filter-label" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>
+    </label>
+  `).join('');
+
   // Add filter event listeners
   elements.statusFilters.querySelectorAll('input').forEach(input => {
     input.addEventListener('change', (e) => {
@@ -361,6 +387,17 @@ function renderFilters() {
         appState.filters.goals.add(e.target.value);
       } else {
         appState.filters.goals.delete(e.target.value);
+      }
+      renderTasks();
+    });
+  });
+
+  elements.tagFilters.querySelectorAll('input').forEach(input => {
+    input.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        appState.filters.tags.add(e.target.value);
+      } else {
+        appState.filters.tags.delete(e.target.value);
       }
       renderTasks();
     });
@@ -440,21 +477,67 @@ function renderMemories(searchQuery = '') {
 
   elements.memoryList.innerHTML = filteredMemories.map(memory => `
     <div class="memory-item" data-id="${memory.id}">
-      <div class="memory-header">
-        <h4 class="memory-summary">${escapeHtml(memory.summary)}</h4>
-        <span class="memory-date">${formatRelativeTime(memory.created_at)}</span>
+      <div class="memory-item-header">
+        <h4 class="memory-item-summary">${escapeHtml(memory.summary)}</h4>
       </div>
-      <p class="memory-content">${escapeHtml(memory.content)}</p>
+      <p class="memory-item-content">${escapeHtml(memory.content)}</p>
       ${memory.tags && memory.tags.length > 0 ? `
-        <div class="memory-tags">
-          ${memory.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
+        <div class="memory-item-tags">
+          ${memory.tags.map(tag => `<span class="tag" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>`).join('')}
         </div>
       ` : ''}
+      <div class="memory-item-meta">
+        <div class="memory-meta-item">
+          <span class="meta-label">Created:</span>
+          <span class="meta-value">${formatRelativeTime(memory.metadata?.created_at || memory.created_at)}</span>
+        </div>
+        ${(memory.metadata?.updated_at || memory.updated_at) ? `
+          <div class="memory-meta-item">
+            <span class="meta-label">Updated:</span>
+            <span class="meta-value">${formatRelativeTime(memory.metadata?.updated_at || memory.updated_at)}</span>
+          </div>
+        ` : ''}
+      </div>
     </div>
   `).join('');
 
   // Setup memory click listeners
   setupMemoryListeners();
+}
+
+/**
+ * Render memory tag filters
+ */
+function renderMemoryTagFilters() {
+  const memories = dataLoader.getMemories();
+
+  // Collect all unique tags from memories
+  const allTags = new Set();
+  memories.forEach(memory => {
+    if (memory.tags && memory.tags.length > 0) {
+      memory.tags.forEach(tag => allTags.add(tag));
+    }
+  });
+
+  const sortedTags = Array.from(allTags).sort();
+  elements.memoryTags.innerHTML = sortedTags.map(tag => `
+    <label class="filter-checkbox">
+      <input type="checkbox" value="${tag}" ${appState.memoryFilters.tags.has(tag) ? 'checked' : ''}>
+      <span class="tag-filter-label" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>
+    </label>
+  `).join('');
+
+  // Add tag filter event listeners
+  elements.memoryTags.querySelectorAll('input').forEach(input => {
+    input.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        appState.memoryFilters.tags.add(e.target.value);
+      } else {
+        appState.memoryFilters.tags.delete(e.target.value);
+      }
+      renderMemories(appState.memoryFilters.search);
+    });
+  });
 }
 
 /**
@@ -500,24 +583,45 @@ function filterTasks(tasks) {
       return false;
     }
 
+    // Tag filter
+    if (appState.filters.tags.size > 0) {
+      if (!task.tags || task.tags.length === 0) {
+        return false;
+      }
+      // Check if task has at least one of the selected tags
+      const hasMatchingTag = task.tags.some(tag => appState.filters.tags.has(tag));
+      if (!hasMatchingTag) {
+        return false;
+      }
+    }
+
     return true;
   });
 }
 
 /**
- * Filter memories based on search
+ * Filter memories based on search and tags
  */
 function filterMemories(memories, searchQuery) {
-  if (!searchQuery) {
-    return memories;
-  }
+  return memories.filter(memory => {
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = memory.summary.toLowerCase().includes(query) ||
+                          memory.content.toLowerCase().includes(query) ||
+                          (memory.tags && memory.tags.some(tag => tag.toLowerCase().includes(query)));
+      if (!matchesSearch) return false;
+    }
 
-  const query = searchQuery.toLowerCase();
-  return memories.filter(memory =>
-    memory.summary.toLowerCase().includes(query) ||
-    memory.content.toLowerCase().includes(query) ||
-    (memory.tags && memory.tags.some(tag => tag.toLowerCase().includes(query)))
-  );
+    // Tag filter
+    if (appState.memoryFilters.tags.size > 0) {
+      if (!memory.tags || memory.tags.length === 0) return false;
+      const hasMatchingTag = memory.tags.some(tag => appState.memoryFilters.tags.has(tag));
+      if (!hasMatchingTag) return false;
+    }
+
+    return true;
+  });
 }
 
 
@@ -612,18 +716,6 @@ function navigateToPathIndex(index) {
   }
 }
 
-/**
- * Truncate text to specified length with ellipsis
- * @param {string} text - Text to truncate
- * @param {number} maxLength - Maximum length
- * @returns {string} Truncated text
- */
-function truncateText(text, maxLength) {
-  if (!text || text.length <= maxLength) {
-    return text;
-  }
-  return text.substring(0, maxLength) + '...';
-}
 
 /**
  * Handle goal filter click
@@ -848,7 +940,7 @@ function renderMemoryDetailModal(memory) {
           <section class="modal-section">
             <h3 class="modal-section-title">Tags</h3>
             <div class="memory-tags">
-              ${memory.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join(' ')}
+              ${memory.tags.map(tag => `<span class="tag" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>`).join(' ')}
             </div>
           </section>
         ` : ''}
@@ -860,11 +952,11 @@ function renderMemoryDetailModal(memory) {
             <dd><code>${memory.id}</code></dd>
 
             <dt>Created:</dt>
-            <dd>${formatDate(memory.created_at)} (${formatRelativeTime(memory.created_at)})</dd>
+            <dd>${formatDate(memory.metadata?.created_at || memory.created_at)} (${formatRelativeTime(memory.metadata?.created_at || memory.created_at)})</dd>
 
-            ${memory.updated_at ? `
+            ${memory.metadata?.updated_at || memory.updated_at ? `
               <dt>Last Updated:</dt>
-              <dd>${formatDate(memory.updated_at)} (${formatRelativeTime(memory.updated_at)})</dd>
+              <dd>${formatDate(memory.metadata?.updated_at || memory.updated_at)} (${formatRelativeTime(memory.metadata?.updated_at || memory.updated_at)})</dd>
             ` : ''}
           </dl>
         </section>
@@ -874,7 +966,7 @@ function renderMemoryDetailModal(memory) {
 }
 
 /**
- * Format date string
+ * Format date string with time
  */
 function formatDate(dateString) {
   if (!dateString) return 'N/A';
@@ -908,38 +1000,7 @@ function updateLastSyncTime() {
   elements.lastUpdate.textContent = `Last synced ${formatRelativeTime(lastFetchTime)}`;
 }
 
-/**
- * Show loading indicator
- */
-function showLoading() {
-  appState.isLoading = true;
-  elements.loadingIndicator.classList.remove('hidden');
-}
 
-/**
- * Hide loading indicator
- */
-function hideLoading() {
-  appState.isLoading = false;
-  elements.loadingIndicator.classList.add('hidden');
-}
-
-/**
- * Show toast notification
- */
-function showToast(message, type = 'info') {
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.textContent = message;
-
-  elements.toastContainer.appendChild(toast);
-
-  // Auto-remove after 3 seconds
-  setTimeout(() => {
-    toast.classList.add('toast-hiding');
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
-}
 
 /**
  * Close modal and clean up all state
@@ -992,4 +1053,4 @@ if (document.readyState === 'loading') {
 }
 
 // Export for testing
-export { appState, renderAll, showToast };
+export { appState, renderAll };

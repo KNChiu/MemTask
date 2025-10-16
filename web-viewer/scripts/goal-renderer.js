@@ -9,7 +9,7 @@
  */
 
 import { logger } from './logger.js';
-import { formatRelativeTime, escapeHtml } from './utils.js';
+import { formatRelativeTime, escapeHtml, calculateProgress, truncateText, formatAbsoluteDate, getTagColor } from './utils.js';
 
 /**
  * Render a single goal card
@@ -21,7 +21,7 @@ export function renderGoalCard(goal, tasks = []) {
   const linkedTasks = tasks.filter(t => t.goal_id === goal.id);
   const completedTasks = linkedTasks.filter(t => t.status === 'completed').length;
   const totalTasks = linkedTasks.length;
-  const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const progress = calculateProgress(completedTasks, totalTasks);
 
   const statusClass = getStatusClass(goal.status);
   const priorityClass = getPriorityClass(goal.priority);
@@ -68,7 +68,7 @@ export function renderGoalCard(goal, tasks = []) {
           <div class="goal-meta-item">
             <span class="meta-label">Target:</span>
             <span class="meta-value ${isOverdue(goal.target_date, goal.status) ? 'text-error' : ''}">
-              ${formatDate(goal.target_date)}
+              ${formatAbsoluteDate(goal.target_date)}
             </span>
           </div>
         ` : ''}
@@ -83,15 +83,12 @@ export function renderGoalCard(goal, tasks = []) {
       ${goal.tags && goal.tags.length > 0 ? `
         <div class="goal-tags">
           ${goal.tags.map(tag => `
-            <span class="tag">${escapeHtml(tag)}</span>
+            <span class="tag" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>
           `).join('')}
         </div>
       ` : ''}
 
       <div class="goal-actions">
-        <button class="btn btn-sm btn-outline view-goal-btn" data-goal-id="${goal.id}">
-          View Details
-        </button>
         <button class="btn btn-sm btn-primary filter-tasks-btn" data-goal-id="${goal.id}">
           Show Tasks (${totalTasks})
         </button>
@@ -187,7 +184,7 @@ export function renderGoalDetailModal(goal, tasks = []) {
             ${goal.tags && goal.tags.length > 0 ? `
               <dt>Tags:</dt>
               <dd>
-                ${goal.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join(' ')}
+                ${goal.tags.map(tag => `<span class="tag" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>`).join(' ')}
               </dd>
             ` : ''}
           </dl>
@@ -215,7 +212,7 @@ function renderTaskListItem(task) {
         <span class="badge badge-priority ${getPriorityClass(task.priority)}">${formatPriority(task.priority)}</span>
       </div>
       ${task.description ? `
-        <p class="task-list-item-description">${escapeHtml(truncate(task.description, 100))}</p>
+        <p class="task-list-item-description">${escapeHtml(truncateText(task.description, 100))}</p>
       ` : ''}
     </div>
   `;
@@ -289,7 +286,7 @@ function formatPriority(priority) {
 }
 
 /**
- * Format date string
+ * Format date string with time for modal display
  */
 function formatDate(dateString) {
   if (!dateString) return 'N/A';
@@ -299,7 +296,9 @@ function formatDate(dateString) {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   } catch (error) {
     logger.error('GoalRenderer', 'Failed to format date', error);
@@ -324,15 +323,6 @@ function isOverdue(targetDate, status) {
   }
 }
 
-/**
- * Truncate text to specified length
- */
-function truncate(text, maxLength) {
-  if (!text || text.length <= maxLength) {
-    return text;
-  }
-  return text.substring(0, maxLength) + '...';
-}
 
 /**
  * Set up goal card event listeners
@@ -341,21 +331,22 @@ function truncate(text, maxLength) {
  * @param {Function} onViewClick - Callback for view details button click
  */
 export function setupGoalCardListeners(container, onFilterClick, onViewClick) {
-  // Filter tasks by goal
   container.addEventListener('click', (event) => {
+    // Filter tasks button - stop propagation to prevent card click
     const filterBtn = event.target.closest('.filter-tasks-btn');
     if (filterBtn) {
+      event.stopPropagation();
       const goalId = filterBtn.dataset.goalId;
       logger.debug('GoalRenderer', `Filter tasks by goal: ${goalId}`);
       onFilterClick(goalId);
       return;
     }
 
-    // View goal details
-    const viewBtn = event.target.closest('.view-goal-btn');
-    if (viewBtn) {
-      const goalId = viewBtn.dataset.goalId;
-      logger.debug('GoalRenderer', `View goal details: ${goalId}`);
+    // Click on goal card itself (not on buttons)
+    const goalCard = event.target.closest('.goal-card');
+    if (goalCard && !event.target.closest('button')) {
+      const goalId = goalCard.dataset.goalId;
+      logger.debug('GoalRenderer', `View goal details via card click: ${goalId}`);
       onViewClick(goalId);
       return;
     }

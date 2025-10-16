@@ -219,6 +219,7 @@ body {
   gap: var(--spacing-md);
   max-height: 600px;
   overflow-y: auto;
+  padding: var(--spacing-xs);
 }
 
 .tag-filters {

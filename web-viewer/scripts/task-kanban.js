@@ -9,7 +9,7 @@
  */
 
 import { logger } from './logger.js';
-import { formatRelativeTime, escapeHtml } from './utils.js';
+import { formatRelativeTime, escapeHtml, truncateText, formatAbsoluteDate, calculateDueDateStatus, getTagColor } from './utils.js';
 import { getStatusClass, getPriorityClass, formatPriority } from './goal-renderer.js';
 
 /**
@@ -94,7 +94,7 @@ export function renderTaskCard(task, goals = []) {
         <span class="badge badge-priority ${priorityClass}">${formatPriority(task.priority)}</span>
       </div>
 
-      <p class="task-description">${escapeHtml(truncate(task.description, 120))}</p>
+      <p class="task-description">${escapeHtml(truncateText(task.description, 120))}</p>
 
       <div class="task-goal-link">
         <span class="goal-icon">🎯</span>
@@ -108,17 +108,12 @@ export function renderTaskCard(task, goals = []) {
         </div>
       ` : ''}
 
-      ${task.due_date ? `
-        <div class="task-due-date ${isOverdue(task.due_date, task.status) ? 'overdue' : ''}">
-          <span class="due-icon">📅</span>
-          <span class="due-text">${formatDate(task.due_date)}</span>
-        </div>
-      ` : ''}
+      ${task.due_date ? renderDueDate(task.due_date, task.status) : ''}
 
       ${task.tags && task.tags.length > 0 ? `
         <div class="task-tags">
           ${task.tags.map(tag => `
-            <span class="tag tag-sm">${escapeHtml(tag)}</span>
+            <span class="tag tag-sm" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>
           `).join('')}
         </div>
       ` : ''}
@@ -173,7 +168,7 @@ export function renderTaskDetailModal(task, goal, allTasks = []) {
                 <h4 class="goal-link-title">${escapeHtml(goal.title)}</h4>
                 <span class="badge badge-status ${getStatusClass(goal.status)}">${formatGoalStatus(goal.status)}</span>
               </div>
-              <p class="goal-link-description">${escapeHtml(truncate(goal.description, 150))}</p>
+              <p class="goal-link-description">${escapeHtml(truncateText(goal.description, 150))}</p>
             </div>
           </section>
         ` : ''}
@@ -250,7 +245,7 @@ export function renderTaskDetailModal(task, goal, allTasks = []) {
             ${task.tags && task.tags.length > 0 ? `
               <dt>Tags:</dt>
               <dd>
-                ${task.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join(' ')}
+                ${task.tags.map(tag => `<span class="tag" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>`).join(' ')}
               </dd>
             ` : ''}
           </dl>
@@ -352,6 +347,32 @@ export function setupKanbanListeners(kanbanBoard, onTaskClick) {
 }
 
 /**
+ * Render due date with rich status
+ */
+function renderDueDate(dueDate, taskStatus) {
+  if (!dueDate || taskStatus === 'completed' || taskStatus === 'cancelled') {
+    return '';
+  }
+
+  const dueDateStatus = calculateDueDateStatus(dueDate);
+  const statusClassMap = {
+    'overdue': 'overdue',
+    'today': 'due-today',
+    'upcoming': 'due-upcoming',
+    'future': 'due-future'
+  };
+
+  const statusClass = statusClassMap[dueDateStatus.status] || '';
+
+  return `
+    <div class="task-due-date ${statusClass}">
+      <span class="due-icon">📅</span>
+      <span class="due-text">${dueDateStatus.text}</span>
+    </div>
+  `;
+}
+
+/**
  * Get status icon
  */
 function getStatusIcon(status) {
@@ -392,7 +413,7 @@ function formatGoalStatus(status) {
 }
 
 /**
- * Format date string
+ * Format date string with time for modal display
  */
 function formatDate(dateString) {
   if (!dateString) return 'N/A';
@@ -402,7 +423,9 @@ function formatDate(dateString) {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   } catch (error) {
     logger.error('TaskKanban', 'Failed to format date', error);
@@ -427,15 +450,6 @@ function isOverdue(dueDate, status) {
   }
 }
 
-/**
- * Truncate text to specified length
- */
-function truncate(text, maxLength) {
-  if (!text || text.length <= maxLength) {
-    return text;
-  }
-  return text.substring(0, maxLength) + '...';
-}
 
 /**
  * Clear kanban board

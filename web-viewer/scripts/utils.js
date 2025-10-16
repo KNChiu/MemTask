@@ -74,15 +74,6 @@ export function validateId(id, type) {
 }
 
 /**
- * Sanitize text content (prevent XSS)
- */
-export function sanitizeText(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-/**
  * Truncate text with ellipsis
  */
 export function truncateText(text, maxLength) {
