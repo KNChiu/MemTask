@@ -475,15 +475,17 @@ function renderMemories(searchQuery = '') {
 
   elements.memoriesEmptyState.classList.add('hidden');
 
-  elements.memoryList.innerHTML = filteredMemories.map(memory => `
+  elements.memoryList.innerHTML = filteredMemories.map(memory => {
+    const tags = memory.metadata?.tags || memory.tags || [];
+    return `
     <div class="memory-item" data-id="${memory.id}">
       <div class="memory-item-header">
         <h4 class="memory-item-summary">${escapeHtml(memory.summary)}</h4>
       </div>
       <p class="memory-item-content">${escapeHtml(memory.content)}</p>
-      ${memory.tags && memory.tags.length > 0 ? `
+      ${tags.length > 0 ? `
         <div class="memory-item-tags">
-          ${memory.tags.map(tag => `<span class="tag" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>`).join('')}
+          ${tags.map(tag => `<span class="tag" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>`).join('')}
         </div>
       ` : ''}
       <div class="memory-item-meta">
@@ -499,7 +501,8 @@ function renderMemories(searchQuery = '') {
         ` : ''}
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   // Setup memory click listeners
   setupMemoryListeners();
@@ -514,8 +517,9 @@ function renderMemoryTagFilters() {
   // Collect all unique tags from memories
   const allTags = new Set();
   memories.forEach(memory => {
-    if (memory.tags && memory.tags.length > 0) {
-      memory.tags.forEach(tag => allTags.add(tag));
+    const tags = memory.metadata?.tags || memory.tags || [];
+    if (tags.length > 0) {
+      tags.forEach(tag => allTags.add(tag));
     }
   });
 
@@ -604,19 +608,21 @@ function filterTasks(tasks) {
  */
 function filterMemories(memories, searchQuery) {
   return memories.filter(memory => {
+    const tags = memory.metadata?.tags || memory.tags || [];
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesSearch = memory.summary.toLowerCase().includes(query) ||
                           memory.content.toLowerCase().includes(query) ||
-                          (memory.tags && memory.tags.some(tag => tag.toLowerCase().includes(query)));
+                          (tags.length > 0 && tags.some(tag => tag.toLowerCase().includes(query)));
       if (!matchesSearch) return false;
     }
 
     // Tag filter
     if (appState.memoryFilters.tags.size > 0) {
-      if (!memory.tags || memory.tags.length === 0) return false;
-      const hasMatchingTag = memory.tags.some(tag => appState.memoryFilters.tags.has(tag));
+      if (tags.length === 0) return false;
+      const hasMatchingTag = tags.some(tag => appState.memoryFilters.tags.has(tag));
       if (!hasMatchingTag) return false;
     }
 
@@ -917,6 +923,7 @@ function handleMemoryViewClick(memoryId, addToPath = true) {
  * Render memory detail modal
  */
 function renderMemoryDetailModal(memory) {
+  const tags = memory.metadata?.tags || memory.tags || [];
   return `
     <div class="memory-detail-modal">
       <div class="modal-header">
@@ -936,11 +943,11 @@ function renderMemoryDetailModal(memory) {
           </section>
         ` : ''}
 
-        ${memory.tags && memory.tags.length > 0 ? `
+        ${tags.length > 0 ? `
           <section class="modal-section">
             <h3 class="modal-section-title">Tags</h3>
             <div class="memory-tags">
-              ${memory.tags.map(tag => `<span class="tag" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>`).join(' ')}
+              ${tags.map(tag => `<span class="tag" style="background-color: ${getTagColor(tag)}">${escapeHtml(tag)}</span>`).join(' ')}
             </div>
           </section>
         ` : ''}
